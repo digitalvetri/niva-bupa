@@ -2,6 +2,8 @@
 // (otherwise dedup-by-hash would reuse a stale snapshot and mask parser changes).
 import { config } from "dotenv";
 config();
+// Never truncate the dev DB — pin to the dedicated test DB.
+if (process.env.TEST_DATABASE_URL) process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
 import { PrismaClient } from "@prisma/client";
 
 export default async function () {
