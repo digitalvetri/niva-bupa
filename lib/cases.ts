@@ -28,6 +28,8 @@ export type CaseListRow = {
   loggedPremium: number;
   issuedPremium: number;
   statusAgeing: number | null;
+  loginAgeing: number | null;
+  ageingDays: number | null; // statusAgeing ?? loginAgeing (see stuck_cases note)
   isPortability: boolean;
   discrepancy: boolean;
 };
@@ -67,7 +69,7 @@ export async function listCases(db: PrismaClient, snapshotId: string, filters: F
       select: {
         id: true, applicationNo: true, customerName: true, loginBranch: true, agentName: true,
         productGenre: true, planType: true, funnelStage: true, leadStatusRaw: true,
-        loggedPremium: true, issuedPremium: true, statusAgeing: true, isPortability: true, discrepancy: true,
+        loggedPremium: true, issuedPremium: true, statusAgeing: true, loginAgeing: true, isPortability: true, discrepancy: true,
       },
     }),
   ]);
@@ -86,6 +88,8 @@ export async function listCases(db: PrismaClient, snapshotId: string, filters: F
       loggedPremium: dnum(r.loggedPremium),
       issuedPremium: dnum(r.issuedPremium),
       statusAgeing: r.statusAgeing,
+      loginAgeing: r.loginAgeing,
+      ageingDays: r.statusAgeing ?? r.loginAgeing,
       isPortability: r.isPortability,
       discrepancy: r.discrepancy,
     })),

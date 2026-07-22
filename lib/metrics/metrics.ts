@@ -169,6 +169,10 @@ export type StuckCaseRow = {
   leadStatus: string;
   loggedPremium: number;
   statusAgeing: number | null;
+  loginAgeing: number | null;
+  // Effective ageing for the pipeline badge: status ageing when present, else login ageing.
+  // This export sets Current Status Ageing = N/A for pending cases; Login Ageing carries the days.
+  ageingDays: number | null;
   display: { logged: string; loggedFull: string };
 };
 
@@ -178,7 +182,7 @@ export async function stuckCases(db: PrismaClient, snapshotId: string, filters: 
     orderBy: { loggedPremium: "desc" },
     select: {
       applicationNo: true, customerName: true, loginBranch: true, agentName: true,
-      funnelStage: true, leadStatusRaw: true, loggedPremium: true, statusAgeing: true,
+      funnelStage: true, leadStatusRaw: true, loggedPremium: true, statusAgeing: true, loginAgeing: true,
     },
   });
   const data: StuckCaseRow[] = rows.map((r) => {
@@ -192,6 +196,8 @@ export async function stuckCases(db: PrismaClient, snapshotId: string, filters: 
       leadStatus: normalizeLeadStatus(r.leadStatusRaw),
       loggedPremium: logged,
       statusAgeing: r.statusAgeing,
+      loginAgeing: r.loginAgeing,
+      ageingDays: r.statusAgeing ?? r.loginAgeing,
       display: { logged: formatINR(logged), loggedFull: formatINRFull(logged) },
     };
   });

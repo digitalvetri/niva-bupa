@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Territory IQ — dark-first design system (§8). Single dark theme for v1. */
+:root {
+  --bg: #0b0e14;
+  --surface: #12161f;
+  --surface-2: #171d29;
+  --border: #232b3a;
+  --fg: #e7eaf0;
+  --fg-muted: #9aa4b5;
+  --fg-subtle: #6b7488;
+
+  --primary: #3b82f6;
+  --primary-fg: #f8fafc;
+
+  /* Heat-bar / status (reserved; always paired with a label) */
+  --won: #22c55e;
+  --pending: #f59e0b;
+  --action: #ef4444;
+  --review: #64748b;
+
+  /* Chart series — validated (dataviz six-checks, dark surface #12161f) */
+  --chart-logged: #3b82f6;
+  --chart-issued: #ec4899;
+
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-feature-settings: "tnum" 1, "cv01" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Tabular numerals everywhere money/counts appear */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
