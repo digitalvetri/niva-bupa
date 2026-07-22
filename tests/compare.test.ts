@@ -57,6 +57,17 @@ describe("§6.2 snapshot_compare — generic value/prev/delta/delta_pct", () => 
     expect(salem.delta).toBe(curSalem - (prevMap.get("Salem") ?? 0));
   });
 
+  it("answers 'which branches improved this week?' — top-delta branch is well-defined", async () => {
+    // Ground truth for the marquee Phase 4 bot DoD (the live bot path needs credentials).
+    const cmp = (await compareMetric(prisma, "premium_by_branch", current, previous, {})).data;
+    const improved = cmp.cells.filter((c) => c.delta > 0);
+    expect(improved.length).toBeGreaterThan(0);
+    const top = cmp.cells[0]!; // sorted by delta desc
+    expect(top.delta).toBeGreaterThan(0);
+    expect(top.value).toBe(top.prev + top.delta);
+    expect(top.delta_pct).toBe(Math.round((top.delta / top.prev) * 1000) / 10);
+  });
+
   it("respects filters on both sides (Salem-only compare)", async () => {
     const cmp = (await compareMetric(prisma, "totals", current, previous, { branch: ["Salem"] })).data;
     const cases = cmp.cells.find((c) => c.key === "case_count")!;

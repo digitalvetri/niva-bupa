@@ -28,9 +28,9 @@ function startOfDayUtc(nowMs: number): Date {
 }
 
 export async function queueNudge(db: PrismaClient, input: NudgeInput, nowMs: number): Promise<NudgeResult> {
-  // Guardrail: max 20 nudges/day/user (§9). Count this user's non-blocked nudges today.
+  // Guardrail: max 20 nudges/day/user (§9). Count THIS user's non-blocked nudges today.
   const sentToday = await db.nudgeLog.count({
-    where: { tenantId: input.tenantId, createdAt: { gte: startOfDayUtc(nowMs) }, status: { in: ["QUEUED", "SENT"] } },
+    where: { tenantId: input.tenantId, userId: input.userId, createdAt: { gte: startOfDayUtc(nowMs) }, status: { in: ["QUEUED", "SENT"] } },
   });
   if (sentToday >= DAILY_NUDGE_CAP) return { status: "BLOCKED", reason: "daily_cap", sentToday };
 
@@ -39,11 +39,11 @@ export async function queueNudge(db: PrismaClient, input: NudgeInput, nowMs: num
 
   // Missing phone -> copy-to-clipboard fallback (§9). Log it so nothing is silent.
   if (!phone) {
-    const log = await db.nudgeLog.create({ data: { tenantId: input.tenantId, caseId: input.caseId, toName: input.toName, toPhone: null, message: input.message, status: "FAILED" } });
+    const log = await db.nudgeLog.create({ data: { tenantId: input.tenantId, userId: input.userId, caseId: input.caseId, toName: input.toName, toPhone: null, message: input.message, status: "FAILED" } });
     return { status: "FALLBACK", nudgeId: log.id, reason: "no_phone", message: input.message };
   }
 
-  const log = await db.nudgeLog.create({ data: { tenantId: input.tenantId, caseId: input.caseId, toName: input.toName, toPhone: phone, message: input.message, status: "QUEUED" } });
+  const log = await db.nudgeLog.create({ data: { tenantId: input.tenantId, userId: input.userId, caseId: input.caseId, toName: input.toName, toPhone: phone, message: input.message, status: "QUEUED" } });
 
   // POST to the n8n webhook (which calls the WhatsApp Cloud API). Optimistically mark SENT on 2xx;
   // the n8n callback can later reconcile. Without a configured webhook, it stays QUEUED.

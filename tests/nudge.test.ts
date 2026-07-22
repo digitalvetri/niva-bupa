@@ -59,13 +59,17 @@ describe("§9 queueNudge", () => {
     if (r.status === "QUEUED") expect(r.toPhone).toBe("+919876543210");
   });
 
-  it("enforces the 20/day/user cap", async () => {
+  it("enforces the 20/day cap per user (not per tenant)", async () => {
     const cap = "cap-tenant";
     for (let i = 0; i < DAILY_NUDGE_CAP; i++) {
-      await prisma.nudgeLog.create({ data: { tenantId: cap, caseId: `C${i}`, toName: "x", toPhone: "+91", message: "m", status: "QUEUED", createdAt: new Date(NOW) } });
+      await prisma.nudgeLog.create({ data: { tenantId: cap, userId: "user-a", caseId: `C${i}`, toName: "x", toPhone: "+91", message: "m", status: "QUEUED", createdAt: new Date(NOW) } });
     }
-    const r = await queueNudge(prisma, { tenantId: cap, userId: "u", caseId: "C21", toName: "x", agentCode: "A1", message: "m" }, NOW);
-    expect(r.status).toBe("BLOCKED");
-    if (r.status === "BLOCKED") expect(r.sentToday).toBe(DAILY_NUDGE_CAP);
+    // user-a is capped...
+    const blocked = await queueNudge(prisma, { tenantId: cap, userId: "user-a", caseId: "C21", toName: "x", agentCode: "A1", message: "m" }, NOW);
+    expect(blocked.status).toBe("BLOCKED");
+    if (blocked.status === "BLOCKED") expect(blocked.sentToday).toBe(DAILY_NUDGE_CAP);
+    // ...but user-b in the same tenant is not (proves per-user, not per-tenant).
+    const ok = await queueNudge(prisma, { tenantId: cap, userId: "user-b", caseId: "C22", toName: "x", agentCode: "NOPHONE", message: "m" }, NOW);
+    expect(ok.status).not.toBe("BLOCKED");
   });
 });

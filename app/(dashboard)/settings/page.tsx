@@ -45,7 +45,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader><CardTitle>High-value threshold</CardTitle></CardHeader>
           <CardBody className="space-y-3">
-            <p className="text-sm text-fg-muted">Cases with logged premium at or above this are flagged high-value (used by the attention banner and follow-up list).</p>
+            <p className="text-sm text-fg-muted">Cases with logged premium at or above this are treated as high-value in the follow-up list (<code className="text-fg">high_value_stuck</code> — "who should I call today").</p>
             <div className="flex items-center gap-2">
               <span className="text-fg-subtle">₹</span>
               <Input type="number" value={threshold} onChange={(e) => setThreshold(e.target.value)} className="max-w-[180px]" />

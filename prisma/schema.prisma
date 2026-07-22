@@ -133,6 +133,7 @@ model ChatMessage {
 model NudgeLog {
   id        String   @id @default(uuid())
   tenantId  String
+  userId    String? // §9 per-user daily cap (added beyond §3; schema evolved to honor §9)
   caseId    String
   channel   String   @default("WHATSAPP")
   toName    String
@@ -140,4 +141,6 @@ model NudgeLog {
   message   String
   status    String   @default("QUEUED") // QUEUED | SENT | FAILED
   createdAt DateTime @default(now())
+
+  @@index([tenantId, userId, createdAt])
 }

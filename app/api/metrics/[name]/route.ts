@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getMetric } from "@/lib/metrics/catalog";
 import { compareMetric } from "@/lib/metrics/compare";
+import { getSettings } from "@/lib/nudge/settings";
+import { contextFromRequest } from "@/lib/auth";
 import type { Filters } from "@/lib/metrics/types";
 
 export const runtime = "nodejs";
@@ -23,6 +25,12 @@ export async function GET(req: NextRequest, { params }: { params: { name: string
     } catch {
       return NextResponse.json({ error: "filters must be valid JSON" }, { status: 400 });
     }
+  }
+
+  // high_value_stuck honors the tenant's configured threshold (§2.2 / Settings) unless overridden.
+  if (params.name === "high_value_stuck" && filters.minLoggedPremium === undefined) {
+    const { tenantId } = contextFromRequest(req);
+    if (tenantId) filters = { ...filters, minLoggedPremium: (await getSettings(prisma, tenantId)).high_value_threshold };
   }
 
   // §5: compareSnapshotId turns any metric into a value/prev/delta/delta_pct diff.
