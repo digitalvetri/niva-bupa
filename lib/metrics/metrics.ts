@@ -246,3 +246,128 @@ export async function agentLeaderboard(db: PrismaClient, snapshotId: string, fil
   const total = rows.reduce((s, r) => s + r.cases, 0);
   return { id: "agent_leaderboard", data: rows, meta: meta(snapshotId, filters, total) };
 }
+
+// ── generic ranked group-by (product, plan type, AM) ─────────────────────────────
+export type GroupRow = { key: string; cases: number; logged: number; issued: number; issued_count: number; conversion_pct: number; display: { logged: string; issued: string } };
+
+async function rankedGroupBy(db: PrismaClient, snapshotId: string, filters: Filters, by: "productGenre" | "planType" | "amName", id: string): Promise<MetricResult<GroupRow[]>> {
+  const where = buildWhere(snapshotId, filters);
+  const grouped = await db.nbCase.groupBy({ by: [by], where, _count: { _all: true }, _sum: { loggedPremium: true, issuedPremium: true } });
+  const issued = await db.nbCase.groupBy({ by: [by], where: { ...where, funnelStage: "ISSUED" }, _count: { _all: true } });
+  const issuedMap = new Map(issued.map((r) => [r[by], r._count._all]));
+  const rows: GroupRow[] = grouped
+    .map((r) => {
+      const logged = dnum(r._sum.loggedPremium);
+      const iss = dnum(r._sum.issuedPremium);
+      const issuedCount = issuedMap.get(r[by]) ?? 0;
+      return { key: (r[by] as string | null) ?? "UNKNOWN", cases: r._count._all, logged, issued: iss, issued_count: issuedCount, conversion_pct: formatPct(issuedCount, r._count._all), display: { logged: formatINR(logged), issued: formatINR(iss) } };
+    })
+    .sort((a, b) => b.logged - a.logged);
+  return { id, data: rows, meta: meta(snapshotId, filters, rows.reduce((s, r) => s + r.cases, 0)) };
+}
+
+export const premiumByProduct = (db: PrismaClient, s: string, f: Filters) => rankedGroupBy(db, s, f, "productGenre", "premium_by_product");
+export const premiumByPlanType = (db: PrismaClient, s: string, f: Filters) => rankedGroupBy(db, s, f, "planType", "premium_by_plan_type");
+export const amLeaderboard = (db: PrismaClient, s: string, f: Filters) => rankedGroupBy(db, s, f, "amName", "am_leaderboard");
+
+// ── portability_summary ──────────────────────────────────────────────────────────
+export type PortabilityRow = { segment: "Portability" | "Fresh"; cases: number; logged: number; issued_count: number; conversion_pct: number; display: { logged: string } };
+
+export async function portabilitySummary(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<PortabilityRow[]>> {
+  const where = buildWhere(snapshotId, filters);
+  const build = async (seg: "Portability" | "Fresh", isPort: boolean): Promise<PortabilityRow> => {
+    const w = { ...where, isPortability: isPort };
+    const agg = await db.nbCase.aggregate({ where: w, _count: { _all: true }, _sum: { loggedPremium: true } });
+    const issuedCount = await db.nbCase.count({ where: { ...w, funnelStage: "ISSUED" } });
+    const logged = dnum(agg._sum.loggedPremium);
+    return { segment: seg, cases: agg._count._all, logged, issued_count: issuedCount, conversion_pct: formatPct(issuedCount, agg._count._all), display: { logged: formatINR(logged) } };
+  };
+  const data = [await build("Portability", true), await build("Fresh", false)];
+  return { id: "portability_summary", data, meta: meta(snapshotId, filters, data.reduce((s, r) => s + r.cases, 0)) };
+}
+
+// ── discrepancy_cases ────────────────────────────────────────────────────────────
+export async function discrepancyCases(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<StuckCaseRow[]>> {
+  const rows = await db.nbCase.findMany({
+    where: { ...buildWhere(snapshotId, filters), discrepancy: true },
+    orderBy: { loggedPremium: "desc" },
+    select: { applicationNo: true, customerName: true, loginBranch: true, agentName: true, funnelStage: true, leadStatusRaw: true, loggedPremium: true, statusAgeing: true, loginAgeing: true },
+  });
+  const data: StuckCaseRow[] = rows.map((r) => {
+    const logged = dnum(r.loggedPremium);
+    return { applicationNo: r.applicationNo, customerName: r.customerName, branch: r.loginBranch, agentName: r.agentName, funnelStage: r.funnelStage, leadStatus: normalizeLeadStatus(r.leadStatusRaw), loggedPremium: logged, statusAgeing: r.statusAgeing, loginAgeing: r.loginAgeing, ageingDays: r.statusAgeing ?? r.loginAgeing, display: { logged: formatINR(logged), loggedFull: formatINRFull(logged) } };
+  });
+  return { id: "discrepancy_cases", data, meta: meta(snapshotId, filters, data.length) };
+}
+
+// ── ageing_buckets ───────────────────────────────────────────────────────────────
+export type AgeingBucketRow = { bucket: "0-3" | "4-7" | "8-14" | "15+"; cases: number; premium: number; display: { premium: string } };
+
+export async function ageingBuckets(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<AgeingBucketRow[]>> {
+  const rows = await db.nbCase.findMany({ where: stuckWhere(snapshotId, filters), select: { statusAgeing: true, loginAgeing: true, loggedPremium: true } });
+  const order: AgeingBucketRow["bucket"][] = ["0-3", "4-7", "8-14", "15+"];
+  const agg = new Map<string, { cases: number; premium: number }>(order.map((b) => [b, { cases: 0, premium: 0 }]));
+  for (const r of rows) {
+    const d = r.statusAgeing ?? r.loginAgeing ?? 0;
+    const b = d <= 3 ? "0-3" : d <= 7 ? "4-7" : d <= 14 ? "8-14" : "15+";
+    const cur = agg.get(b)!;
+    cur.cases += 1;
+    cur.premium += dnum(r.loggedPremium);
+  }
+  const data: AgeingBucketRow[] = order.map((b) => ({ bucket: b, cases: agg.get(b)!.cases, premium: agg.get(b)!.premium, display: { premium: formatINR(agg.get(b)!.premium) } }));
+  return { id: "ageing_buckets", data, meta: meta(snapshotId, filters, rows.length) };
+}
+
+// ── high_value_stuck (stuck_cases with a threshold, default 50,000) ──────────────
+export async function highValueStuck(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<StuckCaseRow[]>> {
+  const withThreshold: Filters = { ...filters, minLoggedPremium: filters.minLoggedPremium ?? 50000 };
+  const r = await stuckCases(db, snapshotId, withThreshold);
+  return { ...r, id: "high_value_stuck" };
+}
+
+// ── geo_customer ─────────────────────────────────────────────────────────────────
+export type GeoRow = { state: string; cases: number; logged: number; display: { logged: string } };
+
+export async function geoCustomer(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<GeoRow[]>> {
+  const where = buildWhere(snapshotId, filters);
+  const grouped = await db.nbCase.groupBy({ by: ["customerState"], where, _count: { _all: true }, _sum: { loggedPremium: true } });
+  const data: GeoRow[] = grouped
+    .map((r) => ({ state: r.customerState ?? "UNKNOWN", cases: r._count._all, logged: dnum(r._sum.loggedPremium), display: { logged: formatINR(dnum(r._sum.loggedPremium)) } }))
+    .sort((a, b) => b.logged - a.logged);
+  return { id: "geo_customer", data, meta: meta(snapshotId, filters, data.reduce((s, r) => s + r.cases, 0)) };
+}
+
+// ── tenure_mix ───────────────────────────────────────────────────────────────────
+export type TenureRow = { tenureYears: number | null; cases: number; premium: number; display: { premium: string } };
+
+export async function tenureMix(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<TenureRow[]>> {
+  const grouped = await db.nbCase.groupBy({ by: ["tenureYears"], where: buildWhere(snapshotId, filters), _count: { _all: true }, _sum: { loggedPremium: true } });
+  const data: TenureRow[] = grouped
+    .map((r) => ({ tenureYears: r.tenureYears, cases: r._count._all, premium: dnum(r._sum.loggedPremium), display: { premium: formatINR(dnum(r._sum.loggedPremium)) } }))
+    .sort((a, b) => (a.tenureYears ?? 99) - (b.tenureYears ?? 99));
+  return { id: "tenure_mix", data, meta: meta(snapshotId, filters, data.reduce((s, r) => s + r.cases, 0)) };
+}
+
+// ── ticket_size_distribution ─────────────────────────────────────────────────────
+export type TicketRow = { band: string; cases: number; premium: number };
+
+export async function ticketSizeDistribution(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<TicketRow[]>> {
+  const rows = await db.nbCase.findMany({ where: buildWhere(snapshotId, filters), select: { loggedPremium: true } });
+  const bands: [string, (n: number) => boolean][] = [
+    ["<10K", (n) => n < 10000],
+    ["10-25K", (n) => n >= 10000 && n < 25000],
+    ["25-50K", (n) => n >= 25000 && n < 50000],
+    ["50K-1L", (n) => n >= 50000 && n < 100000],
+    ["1L+", (n) => n >= 100000],
+  ];
+  const agg = new Map(bands.map(([b]) => [b, { cases: 0, premium: 0 }]));
+  for (const r of rows) {
+    const n = dnum(r.loggedPremium);
+    const band = bands.find(([, test]) => test(n))![0];
+    const cur = agg.get(band)!;
+    cur.cases += 1;
+    cur.premium += n;
+  }
+  const data: TicketRow[] = bands.map(([b]) => ({ band: b, cases: agg.get(b)!.cases, premium: agg.get(b)!.premium }));
+  return { id: "ticket_size_distribution", data, meta: meta(snapshotId, filters, rows.length) };
+}

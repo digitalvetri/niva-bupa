@@ -13,6 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.5",
     "@prisma/client": "^6.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
