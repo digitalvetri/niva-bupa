@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
-import type { FunnelStage, Bucket } from "../ingest/funnelStage.js";
+import type { FunnelStage, Bucket } from "../ingest/funnelStage";
 
 // §6.1 shared filter object.
 export type Filters = {

@@ -3,8 +3,8 @@ import {
   stripBom, toNull, collapseSpaces, normalizeName, titleCase, upperState,
   normalizePlanType, normalizeChannel, normalizeAgentName, parseMoney,
   parseSumAssured, parseTenure, parseBool, parseIntOrNull, parseUsDate, normalizeRider,
-} from "../lib/ingest/normalize.js";
-import { mapFunnelStage, bucketFor, isNeedsAction } from "../lib/ingest/funnelStage.js";
+} from "../lib/ingest/normalize";
+import { mapFunnelStage, bucketFor, isNeedsAction } from "../lib/ingest/funnelStage";
 
 describe("§2.3(1) BOM + whitespace", () => {
   it("strips a leading BOM", () => {

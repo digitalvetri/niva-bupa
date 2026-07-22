@@ -2,8 +2,8 @@
 import "dotenv/config";
 import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
-import { ingestCsv } from "../lib/ingest/ingest.js";
-import { totals, premiumByBranch, funnel, stuckCases, agentLeaderboard, stuckSummary } from "../lib/metrics/metrics.js";
+import { ingestCsv } from "../lib/ingest/ingest";
+import { totals, premiumByBranch, funnel, stuckCases, agentLeaderboard, stuckSummary } from "../lib/metrics/metrics";
 
 const prisma = new PrismaClient();
 const TENANT = "00000000-0000-0000-0000-000000000001";

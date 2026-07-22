@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { PrismaClient } from "@prisma/client";
-import { ingestCsv } from "../lib/ingest/ingest.js";
+import { ingestCsv } from "../lib/ingest/ingest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const FIXTURE_PATH = resolve(__dirname, "../fixtures/nb_sample.csv");

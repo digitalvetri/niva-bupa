@@ -3,8 +3,8 @@
 import { createHash } from "node:crypto";
 import Papa from "papaparse";
 import type { PrismaClient } from "@prisma/client";
-import { stripBom } from "./normalize.js";
-import { parseRow, type RawRow, type IssueDraft, type ParsedCase } from "./parseRow.js";
+import { stripBom } from "./normalize";
+import { parseRow, type RawRow, type IssueDraft, type ParsedCase } from "./parseRow";
 
 // Expected NB header columns for the fingerprint check (§4 step 5). A representative subset.
 const EXPECTED_HEADERS = [

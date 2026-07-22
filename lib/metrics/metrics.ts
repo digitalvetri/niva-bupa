@@ -2,13 +2,14 @@
 // Dashboard AND bot read from these. No query logic lives anywhere else.
 
 import type { PrismaClient } from "@prisma/client";
-import { FUNNEL_ORDER } from "../ingest/funnelStage.js";
-import { buildWhere, meta, dnum, type Filters, type MetricResult } from "./types.js";
-import { formatINR, formatINRFull, formatPct } from "./format.js";
+import { FUNNEL_ORDER } from "../ingest/funnelStage";
+import { buildWhere, meta, dnum, type Filters, type MetricResult } from "./types";
+import { formatINR, formatINRFull, formatPct } from "./format";
 
-/** stuck = funnel_stage != ISSUED AND logged_premium > 0 (§2.2). */
+/** stuck = funnel_stage != ISSUED AND logged_premium > 0 (§2.2).
+ *  AND-merged (not spread) so user filters like minLoggedPremium / funnelStage aren't clobbered. */
 function stuckWhere(snapshotId: string, filters: Filters) {
-  return { ...buildWhere(snapshotId, filters), funnelStage: { not: "ISSUED" }, loggedPremium: { gt: 0 } };
+  return { AND: [buildWhere(snapshotId, filters), { funnelStage: { not: "ISSUED" }, loggedPremium: { gt: 0 } }] };
 }
 
 /** Normalize inconsistent lead_status_raw for grouping (§6.2 stuck_summary). */

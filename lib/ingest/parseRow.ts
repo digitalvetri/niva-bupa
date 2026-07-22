@@ -16,8 +16,8 @@ import {
   parseIntOrNull,
   parseUsDate,
   normalizeRider,
-} from "./normalize.js";
-import { mapFunnelStage } from "./funnelStage.js";
+} from "./normalize";
+import { mapFunnelStage } from "./funnelStage";
 
 export type RawRow = Record<string, string>;
 

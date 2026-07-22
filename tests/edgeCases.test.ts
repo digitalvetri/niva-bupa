@@ -1,8 +1,8 @@
 // §13 edge cases 1–12 that apply to ingestion. Fixture-level where the data exhibits them,
 // unit-level (via ingestCsv on a crafted CSV) where the real fixture doesn't contain the case.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma, ensureFixture, readFixture, TEST_TENANT_ID } from "./helpers.js";
-import { ingestCsv } from "../lib/ingest/ingest.js";
+import { prisma, ensureFixture, readFixture, TEST_TENANT_ID } from "./helpers";
+import { ingestCsv } from "../lib/ingest/ingest";
 
 let snapshotId: string;
 beforeAll(async () => {

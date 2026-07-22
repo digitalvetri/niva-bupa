@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma, ensureFixture } from "./helpers.js";
-import { totals, premiumByBranch, funnel, stuckSummary, stuckCases, agentLeaderboard } from "../lib/metrics/metrics.js";
+import { prisma, ensureFixture } from "./helpers";
+import { totals, premiumByBranch, funnel, stuckSummary, stuckCases, agentLeaderboard } from "../lib/metrics/metrics";
 
 let snapshotId: string;
 
@@ -73,6 +73,17 @@ describe("§12 Phase 1 DoD — metric engine numbers vs the real fixture", () =>
     const totalPrem = r.data.reduce((s, x) => s + x.premium, 0);
     expect(totalCount).toBe(30);
     expect(Math.round(totalPrem)).toBe(1560417); // sum of stuck logged premium (verified vs fixture)
+  });
+
+  it("stuck filters compose: minLoggedPremium narrows stuck_cases (not clobbered)", async () => {
+    const all = await stuckCases(prisma, snapshotId, {});
+    const big = await stuckCases(prisma, snapshotId, { minLoggedPremium: 50000 });
+    expect(big.data.length).toBeLessThan(all.data.length);
+    expect(big.data.length).toBeGreaterThan(0);
+    for (const c of big.data) expect(c.loggedPremium).toBeGreaterThanOrEqual(50000);
+    // still a strict subset of the 30 stuck cases
+    const allApps = new Set(all.data.map((c) => c.applicationNo));
+    for (const c of big.data) expect(allApps.has(c.applicationNo)).toBe(true);
   });
 
   it("filters compose: Salem-only totals are a strict subset", async () => {

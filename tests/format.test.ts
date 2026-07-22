@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatINR, formatINRFull, formatPct } from "../lib/metrics/format.js";
+import { formatINR, formatINRFull, formatPct } from "../lib/metrics/format";
 
 describe("§6.3 formatINR (compact)", () => {
   it("lakh form", () => {

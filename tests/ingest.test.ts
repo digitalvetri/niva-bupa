@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma, ensureFixture, readFixture, TEST_TENANT_ID } from "./helpers.js";
-import { ingestCsv, fingerprintOk } from "../lib/ingest/ingest.js";
+import { prisma, ensureFixture, readFixture, TEST_TENANT_ID } from "./helpers";
+import { ingestCsv, fingerprintOk } from "../lib/ingest/ingest";
 
 let snapshotId: string;
 

@@ -1,6 +1,6 @@
 // Machine-readable metric catalog (§5 /metrics/catalog). Phase 3 bot reads this to build tools.
-import type { MetricFn } from "./types.js";
-import { totals, premiumByBranch, funnel, stuckSummary, stuckCases, agentLeaderboard } from "./metrics.js";
+import type { MetricFn } from "./types";
+import { totals, premiumByBranch, funnel, stuckSummary, stuckCases, agentLeaderboard } from "./metrics";
 
 export type CatalogEntry = {
   id: string;
