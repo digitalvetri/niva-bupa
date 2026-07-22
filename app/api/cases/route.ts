@@ -2,6 +2,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { listCases, type CaseSort, type CasesQuery } from "@/lib/cases";
+import { contextFromRequest } from "@/lib/auth";
+import { requireSnapshot, scopedFilters, AccessError } from "@/lib/access";
 import type { Filters } from "@/lib/metrics/types";
 
 export const runtime = "nodejs";
@@ -19,6 +21,15 @@ export async function GET(req: NextRequest) {
     } catch {
       return NextResponse.json({ error: "filters must be valid JSON" }, { status: 400 });
     }
+  }
+
+  const ctx = contextFromRequest(req);
+  try {
+    await requireSnapshot(prisma, snapshotId, ctx);
+    filters = scopedFilters(filters, ctx);
+  } catch (e) {
+    if (e instanceof AccessError) return NextResponse.json({ error: e.message }, { status: e.status });
+    throw e;
   }
 
   const q: CasesQuery = {

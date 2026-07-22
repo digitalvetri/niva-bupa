@@ -9,6 +9,7 @@ import { routeQuestion, type ChatTurn } from "./router";
 import { narrate } from "./narrator";
 import { detectLanguage } from "./transliterate";
 import { checkNumericDrift } from "./numericGuard";
+import { captureError } from "../observability";
 
 export type ChatContext = { tenantId: string; userId: string };
 export type ChatBody = { snapshotId: string; messages: ChatTurn[]; filters?: Filters; compareSnapshotId?: string };
@@ -39,8 +40,15 @@ export async function* runTurn(db: PrismaClient, ctx: ChatContext, body: ChatBod
     await db.chatMessage.create({ data: { tenantId: ctx.tenantId, userId: ctx.userId, snapshotId: body.snapshotId, role: "assistant", content: assistantText, toolTrace: toolTrace as object } });
   };
 
-  // 1. Route.
-  const routed = await routeQuestion(history);
+  // 1. Route (LLM). Fail with a human-readable message, not a raw SDK error.
+  let routed;
+  try {
+    routed = await routeQuestion(history);
+  } catch (e) {
+    captureError(e, { stage: "router", tenant: ctx.tenantId });
+    yield { type: "error", message: "The assistant is unavailable right now (routing failed). Please try again in a moment." };
+    return;
+  }
 
   // 2a. Out of scope — polite decline, no narrator, no invented numbers (§13.14).
   if (routed.scope === "out") {
@@ -89,7 +97,9 @@ export async function* runTurn(db: PrismaClient, ctx: ChatContext, body: ChatBod
       yield { type: "token", text: delta };
     }
   } catch (e) {
-    yield { type: "error", message: `Narration failed: ${(e as Error).message}` };
+    captureError(e, { stage: "narrator", tenant: ctx.tenantId });
+    const timedOut = /timeout|timed out|ETIMEDOUT|aborted/i.test((e as Error).message);
+    yield { type: "error", message: timedOut ? "The assistant took too long to respond. Please try again." : "The assistant hit an error while writing the answer. Please try again." };
     return;
   }
 

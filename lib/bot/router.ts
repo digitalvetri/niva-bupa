@@ -3,6 +3,7 @@
 import { anthropic, BOT_MODEL } from "./anthropic";
 import { buildTools, METRIC_TOOL_NAMES } from "./tools";
 import { normalizeFilters } from "./transliterate";
+import { sanitizeHistoryForRouter } from "./pii";
 import type { Filters } from "../metrics/types";
 
 export type RouterCall = { metricId: string; filters: Filters };
@@ -41,7 +42,8 @@ export async function routeQuestion(history: ChatTurn[]): Promise<RouterResult> 
     system: ROUTER_SYSTEM,
     tools: tools as never,
     tool_choice: { type: "any" }, // force a tool call — never a bare text answer
-    messages: history.map((t) => ({ role: t.role, content: t.content })),
+    // §11: strip prior assistant narration (may contain row-level customer names) before routing.
+    messages: sanitizeHistoryForRouter(history).map((t) => ({ role: t.role, content: t.content })),
   });
 
   const toolUses = resp.content.filter((b): b is Extract<typeof b, { type: "tool_use" }> => b.type === "tool_use");

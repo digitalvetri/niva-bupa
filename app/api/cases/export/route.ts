@@ -2,6 +2,8 @@
 import { type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { listCases, type CaseSort } from "@/lib/cases";
+import { contextFromRequest } from "@/lib/auth";
+import { requireSnapshot, scopedFilters, AccessError } from "@/lib/access";
 import type { Filters } from "@/lib/metrics/types";
 
 export const runtime = "nodejs";
@@ -20,6 +22,15 @@ export async function GET(req: NextRequest) {
   let filters: Filters = {};
   const raw = searchParams.get("filters");
   if (raw) { try { filters = JSON.parse(raw) as Filters; } catch { return new Response("bad filters", { status: 400 }); } }
+
+  const ctx = contextFromRequest(req);
+  try {
+    await requireSnapshot(prisma, snapshotId, ctx);
+    filters = scopedFilters(filters, ctx);
+  } catch (e) {
+    if (e instanceof AccessError) return new Response(e.message, { status: e.status });
+    throw e;
+  }
 
   const result = await listCases(prisma, snapshotId, filters, {
     page: 1,

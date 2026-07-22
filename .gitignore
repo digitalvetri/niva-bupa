@@ -5,3 +5,4 @@ node_modules/
 *.tsbuildinfo
 next-env.d.ts
 prisma/*.db
+fixtures/nb_sample_anon.csv

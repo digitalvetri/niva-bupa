@@ -5,6 +5,8 @@ import { getMetric } from "@/lib/metrics/catalog";
 import { compareMetric } from "@/lib/metrics/compare";
 import { getSettings } from "@/lib/nudge/settings";
 import { contextFromRequest } from "@/lib/auth";
+import { requireSnapshot, scopedFilters, AccessError } from "@/lib/access";
+import { captureError } from "@/lib/observability";
 import type { Filters } from "@/lib/metrics/types";
 
 export const runtime = "nodejs";
@@ -27,19 +29,28 @@ export async function GET(req: NextRequest, { params }: { params: { name: string
     }
   }
 
-  // high_value_stuck honors the tenant's configured threshold (§2.2 / Settings) unless overridden.
-  if (params.name === "high_value_stuck" && filters.minLoggedPremium === undefined) {
-    const { tenantId } = contextFromRequest(req);
-    if (tenantId) filters = { ...filters, minLoggedPremium: (await getSettings(prisma, tenantId)).high_value_threshold };
-  }
+  const ctx = contextFromRequest(req);
+  try {
+    // Tenant isolation + branch scoping (§10/§11) — assert ownership before reading any rows.
+    await requireSnapshot(prisma, snapshotId, ctx);
+    filters = scopedFilters(filters, ctx);
 
-  // §5: compareSnapshotId turns any metric into a value/prev/delta/delta_pct diff.
-  const compareSnapshotId = searchParams.get("compareSnapshotId");
-  if (compareSnapshotId && compareSnapshotId !== snapshotId) {
-    const result = await compareMetric(prisma, params.name, snapshotId, compareSnapshotId, filters);
-    return NextResponse.json(result);
-  }
+    // high_value_stuck honors the tenant's configured threshold (§2.2 / Settings) unless overridden.
+    if (params.name === "high_value_stuck" && filters.minLoggedPremium === undefined) {
+      filters = { ...filters, minLoggedPremium: (await getSettings(prisma, ctx.tenantId)).high_value_threshold };
+    }
 
-  const result = await metric.fn(prisma, snapshotId, filters);
-  return NextResponse.json(result);
+    // §5: compareSnapshotId turns any metric into a value/prev/delta/delta_pct diff.
+    const compareSnapshotId = searchParams.get("compareSnapshotId");
+    if (compareSnapshotId && compareSnapshotId !== snapshotId) {
+      await requireSnapshot(prisma, compareSnapshotId, ctx); // both snapshots must belong to the caller
+      return NextResponse.json(await compareMetric(prisma, params.name, snapshotId, compareSnapshotId, filters));
+    }
+
+    return NextResponse.json(await metric.fn(prisma, snapshotId, filters));
+  } catch (e) {
+    if (e instanceof AccessError) return NextResponse.json({ error: e.message }, { status: e.status });
+    captureError(e, { route: "metrics", metric: params.name });
+    return NextResponse.json({ error: "Failed to compute metric" }, { status: 500 });
+  }
 }
