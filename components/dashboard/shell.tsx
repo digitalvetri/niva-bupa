@@ -9,6 +9,7 @@ import { ComparePicker } from "./compare-picker";
 import { FilterChips } from "./filter-chips";
 import { ChatDrawer } from "./chat-drawer";
 import { ThemeToggle } from "./theme-toggle";
+import { NivaBupaLogo } from "@/components/brand/niva-bupa-logo";
 
 const NAV = [
   { href: "/pulse", label: "Pulse", icon: Activity },
@@ -40,10 +41,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-bg text-fg">
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 z-20 flex h-screen w-56 flex-col border-r bg-surface">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-fg font-bold">T</div>
-          <div>
-            <div className="text-sm font-semibold leading-tight">Territory IQ</div>
+        <div className="px-4 py-4">
+          <div className="rounded-lg bg-white px-3 py-2.5">
+            <NivaBupaLogo className="h-9 w-auto" />
+          </div>
+          <div className="mt-2.5 border-t pt-2">
+            <div className="text-sm font-semibold leading-tight text-fg">Territory IQ</div>
             <div className="text-[10px] text-fg-subtle">New Business Command Center</div>
           </div>
         </div>
