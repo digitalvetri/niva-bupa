@@ -33,17 +33,21 @@ export type TotalsData = {
   issued_count: number;
   conversion_pct: number;
   avg_ticket: number;
-  display: { logged: string; issued: string; avg_ticket: string };
+  stuck_premium: number;
+  stuck_count: number;
+  display: { logged: string; issued: string; avg_ticket: string; stuck: string };
 };
 
 export async function totals(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<TotalsData>> {
   const where = buildWhere(snapshotId, filters);
   const agg = await db.nbCase.aggregate({ where, _count: { _all: true }, _sum: { loggedPremium: true, issuedPremium: true } });
   const issuedCount = await db.nbCase.count({ where: { ...where, funnelStage: "ISSUED" } });
+  const stuckAgg = await db.nbCase.aggregate({ where: stuckWhere(snapshotId, filters), _count: { _all: true }, _sum: { loggedPremium: true } });
   const caseCount = agg._count._all;
   const logged = dnum(agg._sum.loggedPremium);
   const issued = dnum(agg._sum.issuedPremium);
   const avgTicket = caseCount ? logged / caseCount : 0;
+  const stuckPremium = dnum(stuckAgg._sum.loggedPremium);
   return {
     id: "totals",
     data: {
@@ -53,10 +57,33 @@ export async function totals(db: PrismaClient, snapshotId: string, filters: Filt
       issued_count: issuedCount,
       conversion_pct: formatPct(issuedCount, caseCount),
       avg_ticket: avgTicket,
-      display: { logged: formatINR(logged), issued: formatINR(issued), avg_ticket: formatINR(avgTicket) },
+      stuck_premium: stuckPremium,
+      stuck_count: stuckAgg._count._all,
+      display: { logged: formatINR(logged), issued: formatINR(issued), avg_ticket: formatINR(avgTicket), stuck: formatINR(stuckPremium) },
     },
     meta: meta(snapshotId, filters, caseCount),
   };
+}
+
+// ── daily_trend ────────────────────────────────────────────────────────────────
+export type TrendPoint = { date: string; logged: number; issued: number; cases: number };
+
+export async function dailyTrend(db: PrismaClient, snapshotId: string, filters: Filters): Promise<MetricResult<TrendPoint[]>> {
+  const where = buildWhere(snapshotId, filters);
+  const grouped = await db.nbCase.groupBy({
+    by: ["loggedDate"],
+    where: { ...where, loggedDate: { not: null } },
+    _count: { _all: true },
+    _sum: { loggedPremium: true, issuedPremium: true },
+    orderBy: { loggedDate: "asc" },
+  });
+  const data: TrendPoint[] = grouped.map((r) => ({
+    date: r.loggedDate!.toISOString().slice(0, 10),
+    logged: dnum(r._sum.loggedPremium),
+    issued: dnum(r._sum.issuedPremium),
+    cases: r._count._all,
+  }));
+  return { id: "daily_trend", data, meta: meta(snapshotId, filters, data.reduce((s, p) => s + p.cases, 0)) };
 }
 
 // ── premium_by_branch ──────────────────────────────────────────────────────────

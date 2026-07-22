@@ -1,6 +1,6 @@
 // Machine-readable metric catalog (§5 /metrics/catalog). Phase 3 bot reads this to build tools.
 import type { MetricFn } from "./types";
-import { totals, premiumByBranch, funnel, stuckSummary, stuckCases, agentLeaderboard } from "./metrics";
+import { totals, premiumByBranch, funnel, stuckSummary, stuckCases, agentLeaderboard, dailyTrend } from "./metrics";
 
 export type CatalogEntry = {
   id: string;
@@ -16,6 +16,7 @@ export const CATALOG: Record<string, CatalogEntry> = {
   stuck_summary: { id: "stuck_summary", description: "Count + premium of stuck cases grouped by normalized lead status", outputShape: "table", fn: stuckSummary as MetricFn },
   stuck_cases: { id: "stuck_cases", description: "Row-level stuck cases sorted by logged premium desc", outputShape: "rows", fn: stuckCases as MetricFn },
   agent_leaderboard: { id: "agent_leaderboard", description: "Per agent: cases, logged, issued, conversion%, stuck count", outputShape: "table", fn: agentLeaderboard as MetricFn },
+  daily_trend: { id: "daily_trend", description: "Logged & issued premium per loggedDate within snapshot", outputShape: "table", fn: dailyTrend as MetricFn },
 };
 
 export function getMetric(name: string): CatalogEntry | undefined {
