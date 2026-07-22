@@ -8,6 +8,7 @@ import { SnapshotSwitcher } from "./snapshot-switcher";
 import { ComparePicker } from "./compare-picker";
 import { FilterChips } from "./filter-chips";
 import { ChatDrawer } from "./chat-drawer";
+import { ThemeToggle } from "./theme-toggle";
 
 const NAV = [
   { href: "/pulse", label: "Pulse", icon: Activity },
@@ -74,7 +75,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <ComparePicker />
           <div className="h-5 w-px bg-border" />
           <FilterChips />
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             <button
               onClick={() => setChatOpen(true)}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-surface px-3 text-sm text-fg-muted hover:bg-surface-2"

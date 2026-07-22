@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Territory IQ — dark-first design system (§8). Single dark theme for v1. */
+/* Territory IQ — dark-first design system (§8). Dark is the default; a light theme is
+   available via a toggle (sets data-theme="light" on <html>). */
 :root {
   --bg: #0b0e14;
   --surface: #12161f;
@@ -26,6 +27,31 @@
   --chart-issued: #ec4899;
 
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --border: #dfe4ea;
+  --fg: #161c26;
+  --fg-muted: #566070;
+  --fg-subtle: #8a93a3;
+
+  --primary: #2563eb;
+  --primary-fg: #ffffff;
+
+  /* Status — deepened for contrast on a light surface */
+  --won: #16a34a;
+  --pending: #d97706;
+  --action: #dc2626;
+  --review: #64748b;
+
+  /* Chart series — deepened for contrast on the light surface (#ffffff) */
+  --chart-logged: #2563eb;
+  --chart-issued: #db2777;
+
+  color-scheme: light;
 }
 
 * {
