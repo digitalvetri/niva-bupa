@@ -4,7 +4,9 @@ import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/primitive
 import { KpiCard, PageHeader } from "@/components/dashboard/kpi-card";
 import { LoadingCards, LoadingBlock, ErrorState, EmptyState } from "@/components/dashboard/states";
 import { useMetric } from "@/components/dashboard/use-metric";
+import { useCompare } from "@/components/dashboard/use-compare";
 import { useDashboard } from "@/components/dashboard/provider";
+import type { KpiDelta } from "@/components/dashboard/kpi-card";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { BarList } from "@/components/charts/bar-list";
 import { STAGE_LABEL, heatFor, HEAT_COLOR } from "@/lib/theme";
@@ -17,6 +19,13 @@ export default function PulsePage() {
   const funnel = useMetric<FunnelRow[]>("funnel");
   const branches = useMetric<BranchRow[]>("premium_by_branch");
   const trend = useMetric<TrendPoint[]>("daily_trend");
+  const compare = useCompare("totals");
+  const deltaFor = (key: string, goodWhen: "up" | "down"): KpiDelta | null => {
+    const cell = compare.data?.cells.find((c) => c.key === key);
+    if (!cell || cell.delta === 0) return null;
+    const up = cell.delta > 0;
+    return { label: cell.display.delta, pct: cell.delta_pct, up, good: goodWhen === "up" ? up : !up };
+  };
 
   if (!snapshotId && !loadingSnapshots)
     return (
@@ -37,10 +46,10 @@ export default function PulsePage() {
         <ErrorState message={totals.error} />
       ) : totals.data ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <KpiCard label="Logged Premium" value={totals.data.display.logged} sub={`${totals.data.case_count} cases`} accent="primary" />
-          <KpiCard label="Issued Premium" value={totals.data.display.issued} sub={`${totals.data.issued_count} issued`} accent="won" />
-          <KpiCard label="Conversion" value={`${totals.data.conversion_pct}%`} sub={`${totals.data.issued_count}/${totals.data.case_count}`} accent="neutral" />
-          <KpiCard label="Stuck Premium" value={totals.data.display.stuck} sub={`${totals.data.stuck_count} cases pending`} accent="action" />
+          <KpiCard label="Logged Premium" value={totals.data.display.logged} sub={`${totals.data.case_count} cases`} accent="primary" delta={deltaFor("logged_premium", "up")} />
+          <KpiCard label="Issued Premium" value={totals.data.display.issued} sub={`${totals.data.issued_count} issued`} accent="won" delta={deltaFor("issued_premium", "up")} />
+          <KpiCard label="Conversion" value={`${totals.data.conversion_pct}%`} sub={`${totals.data.issued_count}/${totals.data.case_count}`} accent="neutral" delta={deltaFor("conversion_pct", "up")} />
+          <KpiCard label="Stuck Premium" value={totals.data.display.stuck} sub={`${totals.data.stuck_count} cases pending`} accent="action" delta={deltaFor("stuck_premium", "down")} />
         </div>
       ) : null}
 

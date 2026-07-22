@@ -33,6 +33,20 @@ export function buildTools(): AnthropicTool[] {
     description: `${m.description}. Returns a ${m.outputShape}. Call with a Filters object (all fields optional).`,
     input_schema: FILTERS_SCHEMA,
   }));
+  // snapshot_compare works over another metric across the active + comparison snapshots (§6.2).
+  metricTools.push({
+    name: "snapshot_compare",
+    description: "Compare a metric week-over-week across the active snapshot and the selected comparison snapshot (value, prev, delta, delta_pct). Use for 'which branches improved', 'compared to last week', WoW change. Set `metric` to the base metric to diff.",
+    input_schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        metric: { type: "string", enum: ["totals", "premium_by_branch", "premium_by_product", "agent_leaderboard", "funnel"], description: "Base metric to diff across snapshots" },
+        ...FILTERS_SCHEMA.properties,
+      },
+      required: ["metric"],
+    },
+  });
   metricTools.push({
     name: "none",
     description:

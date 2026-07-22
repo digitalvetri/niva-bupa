@@ -165,6 +165,8 @@ export type StuckCaseRow = {
   customerName: string;
   branch: string;
   agentName: string;
+  agentCode: string | null;
+  productGenre: string;
   funnelStage: string;
   leadStatus: string;
   loggedPremium: number;
@@ -181,7 +183,7 @@ export async function stuckCases(db: PrismaClient, snapshotId: string, filters: 
     where: stuckWhere(snapshotId, filters),
     orderBy: { loggedPremium: "desc" },
     select: {
-      applicationNo: true, customerName: true, loginBranch: true, agentName: true,
+      applicationNo: true, customerName: true, loginBranch: true, agentName: true, agentCode: true, productGenre: true,
       funnelStage: true, leadStatusRaw: true, loggedPremium: true, statusAgeing: true, loginAgeing: true,
     },
   });
@@ -192,6 +194,8 @@ export async function stuckCases(db: PrismaClient, snapshotId: string, filters: 
       customerName: r.customerName,
       branch: r.loginBranch,
       agentName: r.agentName,
+      agentCode: r.agentCode,
+      productGenre: r.productGenre,
       funnelStage: r.funnelStage,
       leadStatus: normalizeLeadStatus(r.leadStatusRaw),
       loggedPremium: logged,
@@ -291,11 +295,11 @@ export async function discrepancyCases(db: PrismaClient, snapshotId: string, fil
   const rows = await db.nbCase.findMany({
     where: { ...buildWhere(snapshotId, filters), discrepancy: true },
     orderBy: { loggedPremium: "desc" },
-    select: { applicationNo: true, customerName: true, loginBranch: true, agentName: true, funnelStage: true, leadStatusRaw: true, loggedPremium: true, statusAgeing: true, loginAgeing: true },
+    select: { applicationNo: true, customerName: true, loginBranch: true, agentName: true, agentCode: true, productGenre: true, funnelStage: true, leadStatusRaw: true, loggedPremium: true, statusAgeing: true, loginAgeing: true },
   });
   const data: StuckCaseRow[] = rows.map((r) => {
     const logged = dnum(r.loggedPremium);
-    return { applicationNo: r.applicationNo, customerName: r.customerName, branch: r.loginBranch, agentName: r.agentName, funnelStage: r.funnelStage, leadStatus: normalizeLeadStatus(r.leadStatusRaw), loggedPremium: logged, statusAgeing: r.statusAgeing, loginAgeing: r.loginAgeing, ageingDays: r.statusAgeing ?? r.loginAgeing, display: { logged: formatINR(logged), loggedFull: formatINRFull(logged) } };
+    return { applicationNo: r.applicationNo, customerName: r.customerName, branch: r.loginBranch, agentName: r.agentName, agentCode: r.agentCode, productGenre: r.productGenre, funnelStage: r.funnelStage, leadStatus: normalizeLeadStatus(r.leadStatusRaw), loggedPremium: logged, statusAgeing: r.statusAgeing, loginAgeing: r.loginAgeing, ageingDays: r.statusAgeing ?? r.loginAgeing, display: { logged: formatINR(logged), loggedFull: formatINRFull(logged) } };
   });
   return { id: "discrepancy_cases", data, meta: meta(snapshotId, filters, data.length) };
 }

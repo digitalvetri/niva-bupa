@@ -2,6 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getMetric } from "@/lib/metrics/catalog";
+import { compareMetric } from "@/lib/metrics/compare";
 import type { Filters } from "@/lib/metrics/types";
 
 export const runtime = "nodejs";
@@ -22,6 +23,13 @@ export async function GET(req: NextRequest, { params }: { params: { name: string
     } catch {
       return NextResponse.json({ error: "filters must be valid JSON" }, { status: 400 });
     }
+  }
+
+  // §5: compareSnapshotId turns any metric into a value/prev/delta/delta_pct diff.
+  const compareSnapshotId = searchParams.get("compareSnapshotId");
+  if (compareSnapshotId && compareSnapshotId !== snapshotId) {
+    const result = await compareMetric(prisma, params.name, snapshotId, compareSnapshotId, filters);
+    return NextResponse.json(result);
   }
 
   const result = await metric.fn(prisma, snapshotId, filters);

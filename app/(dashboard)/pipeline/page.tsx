@@ -1,6 +1,8 @@
 "use client";
-import { Clock } from "lucide-react";
+import * as React from "react";
+import { Clock, MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/kpi-card";
+import { NudgeModal } from "@/components/dashboard/nudge-modal";
 import { LoadingBlock, ErrorState, EmptyState } from "@/components/dashboard/states";
 import { useMetric } from "@/components/dashboard/use-metric";
 import { useDashboard } from "@/components/dashboard/provider";
@@ -61,10 +63,11 @@ export default function PipelinePage() {
 }
 
 function PipelineCard({ c }: { c: StuckCaseRow }) {
+  const [nudge, setNudge] = React.useState(false);
   const ageing = c.ageingDays ?? 0;
   const hot = ageing >= 7;
   return (
-    <div className="relative overflow-hidden rounded-lg border bg-surface p-3 pl-4">
+    <div className="group relative overflow-hidden rounded-lg border bg-surface p-3 pl-4">
       <HeatBar stage={c.funnelStage} />
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -79,6 +82,13 @@ function PipelineCard({ c }: { c: StuckCaseRow }) {
           <Clock className="h-3 w-3" /> {ageing}d
         </span>
       </div>
+      <button
+        onClick={() => setNudge(true)}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[color:var(--won)]/30 bg-[color:var(--won)]/10 py-1.5 text-xs font-medium text-won opacity-0 transition-opacity hover:bg-[color:var(--won)]/20 group-hover:opacity-100"
+      >
+        <MessageCircle className="h-3.5 w-3.5" /> Nudge on WhatsApp
+      </button>
+      {nudge && <NudgeModal row={c} onClose={() => setNudge(false)} />}
     </div>
   );
 }

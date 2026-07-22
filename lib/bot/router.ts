@@ -60,7 +60,7 @@ export async function routeQuestion(history: ChatTurn[]): Promise<RouterResult> 
   }
 
   const calls: RouterCall[] = toolUses
-    .filter((t) => METRIC_TOOL_NAMES.has(t.name))
+    .filter((t) => METRIC_TOOL_NAMES.has(t.name) || t.name === "snapshot_compare")
     .slice(0, MAX_TOOLS_PER_TURN)
     .map((t) => ({ metricId: t.name, filters: normalizeFilters(t.input as Filters) }));
 

@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "@prisma/client";
 import { getMetric } from "../metrics/catalog";
+import { compareMetric } from "../metrics/compare";
 import type { Filters, MetricResult } from "../metrics/types";
 import { routeQuestion, type ChatTurn } from "./router";
 import { narrate } from "./narrator";
@@ -10,7 +11,7 @@ import { detectLanguage } from "./transliterate";
 import { checkNumericDrift } from "./numericGuard";
 
 export type ChatContext = { tenantId: string; userId: string };
-export type ChatBody = { snapshotId: string; messages: ChatTurn[]; filters?: Filters };
+export type ChatBody = { snapshotId: string; messages: ChatTurn[]; filters?: Filters; compareSnapshotId?: string };
 
 export type ToolTraceEntry = { metric: string; filters: Filters; rowsMatched: number; resultHash: string };
 export type Provenance = { rowsMatched: number; filters: Filters; snapshotId: string; metrics: string[] };
@@ -53,6 +54,17 @@ export async function* runTurn(db: PrismaClient, ctx: ChatContext, body: ChatBod
   // 2b. Execute the chosen metric functions (deterministic — the ONLY source of numbers).
   const executed: { metric: string; filters: Filters; result: MetricResult }[] = [];
   for (const call of routed.calls) {
+    if (call.metricId === "snapshot_compare") {
+      const { metric, ...rest } = call.filters as Filters & { metric?: string };
+      const filters = mergeFilters(body.filters, rest);
+      if (!body.compareSnapshotId) {
+        executed.push({ metric: "snapshot_compare", filters, result: { id: "snapshot_compare", data: { note: "No comparison snapshot selected — pick one in the top bar to see week-over-week deltas." }, meta: { rowsMatched: 0, filtersApplied: filters, snapshotId: body.snapshotId, computedAt: new Date().toISOString() } } });
+        continue;
+      }
+      const result = await compareMetric(db, metric ?? "premium_by_branch", body.snapshotId, body.compareSnapshotId, filters);
+      executed.push({ metric: "snapshot_compare", filters, result });
+      continue;
+    }
     const entry = getMetric(call.metricId);
     if (!entry) continue;
     const filters = mergeFilters(body.filters, call.filters);

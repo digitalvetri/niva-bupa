@@ -41,15 +41,16 @@ describe("§7.1/7.3 language register detection", () => {
 });
 
 describe("§7.1 metric catalog exposed as tools", () => {
-  it("one tool per metric + a 'none' escape hatch", () => {
+  it("one tool per metric + snapshot_compare + a 'none' escape hatch", () => {
     const tools = buildTools();
     expect(tools.some((t) => t.name === "none")).toBe(true);
-    const metricTools = tools.filter((t) => t.name !== "none");
+    expect(tools.some((t) => t.name === "snapshot_compare")).toBe(true);
+    const metricTools = tools.filter((t) => t.name !== "none" && t.name !== "snapshot_compare");
     expect(metricTools.length).toBe(METRIC_TOOL_NAMES.size);
     expect(metricTools.map((t) => t.name).sort()).toEqual([...METRIC_TOOL_NAMES].sort());
   });
-  it("every metric tool uses the shared Filters schema (locked down)", () => {
-    for (const t of buildTools().filter((t) => t.name !== "none")) {
+  it("every plain metric tool uses the shared Filters schema (locked down)", () => {
+    for (const t of buildTools().filter((t) => t.name !== "none" && t.name !== "snapshot_compare")) {
       expect(t.input_schema).toBe(FILTERS_SCHEMA);
     }
     expect((FILTERS_SCHEMA as { additionalProperties: boolean }).additionalProperties).toBe(false);

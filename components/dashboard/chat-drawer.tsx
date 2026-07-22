@@ -24,7 +24,7 @@ const SUGGESTIONS = [
 ];
 
 export function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { snapshotId, filters } = useDashboard();
+  const { snapshotId, compareId, filters } = useDashboard();
   const [messages, setMessages] = React.useState<Msg[]>([]);
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -46,7 +46,7 @@ export function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => vo
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ snapshotId, filters, messages: history.map((m) => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({ snapshotId, compareSnapshotId: compareId ?? undefined, filters, messages: history.map((m) => ({ role: m.role, content: m.content })) }),
       });
       if (!res.ok || !res.body) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));

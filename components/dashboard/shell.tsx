@@ -2,9 +2,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare } from "lucide-react";
+import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SnapshotSwitcher } from "./snapshot-switcher";
+import { ComparePicker } from "./compare-picker";
 import { FilterChips } from "./filter-chips";
 import { ChatDrawer } from "./chat-drawer";
 
@@ -12,8 +13,11 @@ const NAV = [
   { href: "/pulse", label: "Pulse", icon: Activity },
   { href: "/branches", label: "Branches", icon: Building2 },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+  { href: "/products", label: "Products", icon: Boxes },
+  { href: "/people", label: "People", icon: Users },
   { href: "/cases", label: "Cases", icon: Table2 },
   { href: "/uploads", label: "Uploads", icon: UploadCloud },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -67,6 +71,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="ml-56 flex min-h-screen flex-1 flex-col">
         <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-bg/80 px-6 py-3 backdrop-blur">
           <SnapshotSwitcher />
+          <ComparePicker />
           <div className="h-5 w-px bg-border" />
           <FilterChips />
           <div className="ml-auto">
