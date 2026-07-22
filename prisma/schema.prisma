@@ -1,0 +1,143 @@
+// Territory IQ — core schema (CLAUDE.md §3). Multi-tenant from day 1.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Tenant {
+  id        String           @id @default(uuid())
+  name      String
+  settings  Json             @default("{}") // { high_value_threshold: 50000, currency: "INR" }
+  users     User[]
+  snapshots ReportSnapshot[]
+  createdAt DateTime         @default(now())
+}
+
+model User {
+  id          String   @id @default(uuid()) // = Supabase auth.uid
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  role        Role     @default(TERRITORY_HEAD)
+  branchScope String[] @default([]) // empty = all branches
+  waPhone     String? // for sending nudges via their WABA
+}
+
+enum Role {
+  TERRITORY_HEAD
+  BRANCH_MANAGER
+  AGENCY_MANAGER
+  VIEWER
+}
+
+model ReportSnapshot {
+  id           String           @id @default(uuid())
+  tenantId     String
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  fileName     String
+  fileHash     String // sha256 — dedupe re-uploads
+  reportType   String           @default("NB_REPORT")
+  periodStart  DateTime? // min(logged_date)
+  periodEnd    DateTime? // max(logged_date)
+  rowCount     Int
+  status       SnapshotStatus   @default(PROCESSING)
+  uploadedById String
+  createdAt    DateTime         @default(now())
+  cases        NbCase[]
+  issues       IngestionIssue[]
+
+  @@unique([tenantId, fileHash])
+  @@index([tenantId, createdAt])
+}
+
+enum SnapshotStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model NbCase {
+  id             String         @id @default(uuid())
+  snapshotId     String
+  snapshot       ReportSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  tenantId       String // denormalized for RLS
+  applicationNo  String
+  policyNo       String?
+  customerId     String?
+  customerName   String
+  customerCity   String?
+  customerState  String?
+  planType       String? // FAMILY_FLOATER | INDIVIDUAL | OTHER
+  productGenre   String         @default("UNKNOWN")
+  planName       String?
+  insuredLives   Int?
+  sumAssured     Decimal?       @db.Decimal(14, 2)
+  isUnlimitedSi  Boolean        @default(false)
+  loggedPremium  Decimal        @default(0) @db.Decimal(12, 2)
+  issuedPremium  Decimal        @default(0) @db.Decimal(12, 2)
+  loadingPremium Decimal        @default(0) @db.Decimal(12, 2)
+  loginBranch    String
+  channel        String?
+  agentCode      String?
+  agentName      String         @default("UNASSIGNED")
+  amId           String?
+  amName         String?
+  salesStatusRaw String?
+  leadStatusRaw  String?
+  funnelStage    String // FunnelStage enum value
+  discrepancy    Boolean        @default(false)
+  statusAgeing   Int?
+  loginAgeing    Int?
+  isPortability  Boolean        @default(false)
+  tenureYears    Int?
+  loggedDate     DateTime?
+  issuedDate     DateTime?
+  policyStart    DateTime?
+  policyEnd      DateTime?
+  riders         Json           @default("{}")
+  raw            Json // full original row — audit + future columns
+
+  @@index([snapshotId, loginBranch])
+  @@index([snapshotId, funnelStage])
+  @@index([snapshotId, agentName])
+  @@index([tenantId, applicationNo])
+}
+
+model IngestionIssue {
+  id         String         @id @default(uuid())
+  snapshotId String
+  snapshot   ReportSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  rowNumber  Int?
+  severity   String // info | warn | error
+  message    String
+  rawRow     Json?
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  snapshotId String?
+  role       String // user | assistant
+  content    String
+  toolTrace  Json? // { metric: "premium_by_branch", filters: {...}, resultHash }
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, userId, createdAt])
+}
+
+model NudgeLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  caseId    String
+  channel   String   @default("WHATSAPP")
+  toName    String
+  toPhone   String?
+  message   String
+  status    String   @default("QUEUED") // QUEUED | SENT | FAILED
+  createdAt DateTime @default(now())
+}
