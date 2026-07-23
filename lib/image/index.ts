@@ -26,7 +26,7 @@ export type ImageProviderMeta = {
 export const IMAGE_PROVIDERS: ImageProviderMeta[] = [
   { id: "pollinations", label: "Pollinations", needsKey: false, needsAccount: false, keyHint: "no key needed", defaultModel: "flux", free: true, note: "Free, no key — great for a quick start." },
   { id: "cloudflare", label: "Cloudflare Workers AI", needsKey: true, needsAccount: true, keyHint: "API token", defaultModel: "@cf/black-forest-labs/flux-1-schnell", free: true, note: "Generous free daily allowance. Needs account ID + API token." },
-  { id: "gemini", label: "Google Gemini (Imagen)", needsKey: true, needsAccount: false, keyHint: "AI Studio API key", defaultModel: "imagen-3.0-generate-002", free: false, note: "Free AI Studio key; Imagen may require billing enabled." },
+  { id: "gemini", label: "Google Gemini (Nano Banana)", needsKey: true, needsAccount: false, keyHint: "AI Studio API key", defaultModel: "gemini-2.5-flash-image", free: true, note: "Native Gemini image generation — works with a free AI Studio key." },
   { id: "openai", label: "OpenAI", needsKey: true, needsAccount: false, keyHint: "sk-…", defaultModel: "gpt-image-1", free: false, note: "Paid. gpt-image-1 / DALL·E." },
   { id: "stability", label: "Stability AI", needsKey: true, needsAccount: false, keyHint: "sk-…", defaultModel: "core", free: false, note: "Signup credits then paid." },
 ];
@@ -60,13 +60,23 @@ export function backgroundPrompt(scopeLabel: string): string {
   );
 }
 
+// Word-based variety for providers without a numeric seed (Gemini), so Regenerate gives new art.
+const COMPOSITION_VARIANTS = [
+  "a soft diagonal flow from the lower-left",
+  "a centered radial glow",
+  "a left-weighted layout with open space on the right",
+  "layered depth with a subtle horizon",
+  "a gentle wave motif sweeping across",
+  "scattered luminous nodes on a dark field",
+];
+
 function toDataUrl(buf: ArrayBuffer, mime: string): string {
   return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`;
 }
 
 async function failText(res: Response): Promise<string> {
   const body = await res.text().catch(() => "");
-  return `${res.status} ${res.statusText}${body ? ` — ${body.slice(0, 300)}` : ""}`;
+  return `${res.status} ${res.statusText}${body ? ` — ${body.slice(0, 600)}` : ""}`;
 }
 
 /**
@@ -141,17 +151,32 @@ export async function generateBackground(config: ImageGenSettings, prompt: strin
     }
 
     case "gemini": {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${config.apiKey}`;
+      // Native Gemini image generation ("Nano Banana") via generateContent — works with a standard
+      // AI Studio key. NB: Imagen's :predict endpoint needs a billing-enabled project (404 otherwise).
+      // Gemini has no numeric seed, so vary the composition by word to make Regenerate produce new art.
+      const variant = COMPOSITION_VARIANTS[seed % COMPOSITION_VARIANTS.length];
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: "16:9" } }),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${prompt} Composition: ${variant}.` }] }],
+          generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
+        }),
       });
-      if (!res.ok) throw new Error(`Gemini (Imagen): ${await failText(res)}`);
-      const j = (await res.json()) as { predictions?: { bytesBase64Encoded?: string; mimeType?: string }[] };
-      const p = j.predictions?.[0];
-      if (!p?.bytesBase64Encoded) throw new Error("Gemini (Imagen): no image in response");
-      return `data:${p.mimeType || "image/png"};base64,${p.bytesBase64Encoded}`;
+      if (!res.ok) throw new Error(`Gemini image: ${await failText(res)}`);
+      const j = (await res.json()) as {
+        candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string }; inline_data?: { mime_type?: string; data?: string } }[] } }[];
+      };
+      for (const part of j.candidates?.[0]?.content?.parts ?? []) {
+        const inline = part.inlineData ?? part.inline_data;
+        const data = inline?.data;
+        if (data) {
+          const mime = ("mimeType" in inline! ? inline.mimeType : undefined) ?? ("mime_type" in inline! ? inline.mime_type : undefined) ?? "image/png";
+          return `data:${mime};base64,${data}`;
+        }
+      }
+      throw new Error(`Gemini image: no image returned (model "${model}" may not support image output — try gemini-2.5-flash-image)`);
     }
   }
 }
