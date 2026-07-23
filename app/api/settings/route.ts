@@ -16,6 +16,7 @@ function publicView(s: TenantSettings) {
     high_value_threshold: s.high_value_threshold,
     currency: s.currency,
     agentPhones: s.agentPhones,
+    branchTargets: s.branchTargets ?? {},
     llm: {
       provider: s.llm?.provider ?? null,
       model: s.llm?.model ?? (s.llm?.provider ? defaultModelFor(s.llm.provider as never) : null),
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (!tenantId) return NextResponse.json({ error: "Missing tenant" }, { status: 401 });
   await ensureDevTenant(prisma, tenantId);
 
-  let body: { high_value_threshold?: number; agentPhonesCsv?: string; llm?: { provider?: string; apiKey?: string; model?: string; clear?: boolean } };
+  let body: { high_value_threshold?: number; agentPhonesCsv?: string; branchTargets?: Record<string, number>; llm?: { provider?: string; apiKey?: string; model?: string; clear?: boolean } };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -50,6 +51,11 @@ export async function POST(req: NextRequest) {
   if (typeof body.agentPhonesCsv === "string") {
     const parsed = parseAgentPhoneCsv(body.agentPhonesCsv);
     if (Object.keys(parsed).length) patch.agentPhones = parsed;
+  }
+  if (body.branchTargets && typeof body.branchTargets === "object") {
+    const clean: Record<string, number> = {};
+    for (const [b, v] of Object.entries(body.branchTargets)) if (typeof v === "number" && v >= 0) clean[b] = Math.round(v);
+    patch.branchTargets = clean;
   }
 
   if (body.llm) {

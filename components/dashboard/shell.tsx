@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings } from "lucide-react";
+import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SnapshotSwitcher } from "./snapshot-switcher";
 import { ComparePicker } from "./compare-picker";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/products", label: "Products", icon: Boxes },
   { href: "/people", label: "People", icon: Users },
   { href: "/cases", label: "Cases", icon: Table2 },
+  { href: "/reports", label: "Reports", icon: FileImage },
   { href: "/uploads", label: "Uploads", icon: UploadCloud },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

@@ -9,6 +9,7 @@ export type TenantSettings = {
   currency: string;
   agentPhones: Record<string, string>; // agentCode -> phone
   llm?: LlmSettings; // bot provider + API key (stored server-side; masked on read)
+  branchTargets?: Record<string, number>; // branch -> business target (₹) for report achievement %
 };
 
 const DEFAULTS: TenantSettings = { high_value_threshold: 50000, currency: "INR", agentPhones: {} };
@@ -25,6 +26,7 @@ export async function updateSettings(db: PrismaClient, tenantId: string, patch: 
     ...current,
     ...patch,
     agentPhones: { ...current.agentPhones, ...(patch.agentPhones ?? {}) },
+    branchTargets: { ...current.branchTargets, ...(patch.branchTargets ?? {}) },
     // Merge llm so e.g. changing the model doesn't wipe the stored key.
     llm: patch.llm ? { ...current.llm, ...patch.llm } : current.llm,
   };
