@@ -89,7 +89,7 @@ export const Poster = React.forwardRef<HTMLDivElement, PosterProps>(function Pos
           )}
           <div style={{ position: "relative", zIndex: 1, display: "flex", alignItems: "center", gap: 22 }}>
             <div style={{ background: "#fff", borderRadius: 14, padding: "11px 15px", boxShadow: "0 6px 18px rgba(0,0,0,0.22)" }}>
-              <NivaBupaLogo className="" />
+              <NivaBupaLogo style={{ width: 140, height: 56, display: "block" }} />
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ color: C.cyan, fontSize: 12, fontWeight: 700, letterSpacing: 2.5, textTransform: "uppercase" }}>

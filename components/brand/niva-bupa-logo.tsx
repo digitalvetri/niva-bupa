@@ -3,11 +3,11 @@
 // it renders crisply everywhere including html-to-image PNG exports (an external raster can taint the
 // export canvas). To use the exact raster instead, drop it at public/niva-bupa.png and swap the <svg>
 // for <img src="/niva-bupa.png" alt="Niva Bupa Health Insurance" className={className} />.
-export function NivaBupaLogo({ className }: { className?: string }) {
+export function NivaBupaLogo({ className, style }: { className?: string; style?: React.CSSProperties }) {
   const CYAN = "#00A9E0";
   const ORANGE = "#F7A81B";
   return (
-    <svg viewBox="0 0 210 84" className={className} role="img" aria-label="Niva Bupa Health Insurance" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 210 84" className={className} style={style} role="img" aria-label="Niva Bupa Health Insurance" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* "niva" wordmark — rounded, bold */}
       <text x="0" y="53" fontFamily="'Nunito','Poppins',ui-rounded,'Segoe UI',system-ui,sans-serif" fontWeight={800} fontSize={50} letterSpacing={-2} fill={CYAN}>
         niva
