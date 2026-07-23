@@ -95,8 +95,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="px-4 py-3 text-[10px] text-fg-subtle">DigitalVetri.AI · v1</div>
       </aside>
 
-      {/* Main */}
-      <div className="flex min-h-screen flex-1 flex-col lg:ml-56">
+      {/* Main — min-w-0 lets the column shrink to the viewport so wide content (posters) scales
+          to fit instead of forcing the whole layout wider than the screen. */}
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:ml-56">
         <header className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-bg/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-6 sm:py-3">
           <button
             aria-label="Open menu"
@@ -121,7 +122,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
-        <main className="flex-1 px-4 py-4 sm:px-6 sm:py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-4 sm:px-6 sm:py-6">{children}</main>
       </div>
 
       {/* Ask Territory IQ — Phase 3 chat drawer */}

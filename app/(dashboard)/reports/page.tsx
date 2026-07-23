@@ -143,14 +143,40 @@ export default function ReportsPage() {
   );
 }
 
+// Fit the fixed-width (1080px) poster into whatever width is available, scaling down only.
+// The poster node itself stays 1080px so PNG export is always full-resolution; only the on-screen
+// preview is transformed. Returns the frame ref to measure and the computed scale.
+function useFitScale(natural: number) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [scale, setScale] = React.useState(1);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const compute = () => { const w = el.clientWidth; if (w > 0) setScale(Math.min(1, w / natural)); };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [natural]);
+  return { ref, scale };
+}
+
 function PosterCard({ scope, backgroundUrl, registerNode, onDownload }: { scope: string | null; backgroundUrl: string | null; registerNode: (el: HTMLDivElement | null) => void; onDownload: (node: HTMLDivElement, filename: string) => Promise<void> }) {
   const { snapshotId } = useDashboard();
   const { data, loading, error } = usePosterData(scope);
   const posterRef = React.useRef<HTMLDivElement>(null);
+  const { ref: frameRef, scale } = useFitScale(1080);
+  const [posterH, setPosterH] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [target, setTarget] = React.useState("");
 
   React.useEffect(() => { registerNode(posterRef.current); return () => registerNode(null); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Track the poster's natural (unscaled) height so the scaled frame reserves the right space.
+  React.useLayoutEffect(() => {
+    const h = posterRef.current?.offsetHeight ?? 0;
+    setPosterH((prev) => (Math.abs(prev - h) > 1 ? h : prev));
+  });
 
   async function saveTarget() {
     if (!scope) return;
@@ -175,13 +201,13 @@ function PosterCard({ scope, backgroundUrl, registerNode, onDownload }: { scope:
 
   return (
     <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2.5 sm:px-4">
         <div className="text-sm font-semibold">{label}{scope ? " branch" : " (overall)"}</div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {scope && (
             <div className="flex items-center gap-1.5">
               <Target className="h-3.5 w-3.5 text-fg-subtle" />
-              <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="target ₹" className="h-8 w-28 text-xs" />
+              <Input value={target} onChange={(e) => setTarget(e.target.value)} placeholder="target ₹" className="h-8 w-24 text-xs sm:w-28" />
               <Button size="sm" variant="outline" onClick={saveTarget}>Set target</Button>
             </div>
           )}
@@ -190,12 +216,16 @@ function PosterCard({ scope, backgroundUrl, registerNode, onDownload }: { scope:
           </Button>
         </div>
       </div>
-      <CardBody>
-        {loading || !data ? <LoadingBlock className="h-72" /> : error ? <ErrorState message={error} /> : (
-          <div className="overflow-x-auto">
-            <Poster ref={posterRef} data={data} backgroundUrl={backgroundUrl} />
-          </div>
-        )}
+      <CardBody className="p-2 sm:p-4">
+        {/* frame is ALWAYS rendered so useFitScale can measure it and attach its ResizeObserver;
+            the poster inside is conditional. Height reserves the scaled poster's space. */}
+        <div ref={frameRef} style={{ width: "100%", overflow: "hidden", height: data && posterH ? Math.round(posterH * scale) : undefined }}>
+          {loading || !data ? <LoadingBlock className="h-72" /> : error ? <ErrorState message={error} /> : (
+            <div style={{ width: 1080, transformOrigin: "top left", transform: `scale(${scale})` }}>
+              <Poster ref={posterRef} data={data} backgroundUrl={backgroundUrl} />
+            </div>
+          )}
+        </div>
       </CardBody>
     </Card>
   );
