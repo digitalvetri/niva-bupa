@@ -91,7 +91,7 @@ export function ChatDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
   return (
-    <div className="fixed inset-y-0 right-0 z-40 flex w-[26rem] flex-col border-l bg-surface shadow-2xl">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[26rem] flex-col border-l bg-surface shadow-2xl">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium"><MessageSquare className="h-4 w-4 text-primary" /> Ask Territory IQ</div>
         <button onClick={onClose} className="text-fg-subtle hover:text-fg"><X className="h-4 w-4" /></button>

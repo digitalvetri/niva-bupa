@@ -94,7 +94,7 @@ export default function ReportsPage() {
         title="Reports"
         subtitle="Branded performance posters — one per branch + territory"
         right={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {bg.configured && (
               <>
                 <label className="flex items-center gap-1.5 text-xs text-fg-muted">

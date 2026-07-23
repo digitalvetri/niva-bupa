@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage } from "lucide-react";
+import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SnapshotSwitcher } from "./snapshot-switcher";
 import { ComparePicker } from "./compare-picker";
@@ -26,6 +26,7 @@ const NAV = [
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [navOpen, setNavOpen] = React.useState(false); // mobile off-canvas sidebar
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -38,20 +39,42 @@ export function Shell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
+  // Close the mobile drawer on navigation.
+  React.useEffect(() => { setNavOpen(false); }, [pathname]);
+
   return (
     <div className="flex min-h-screen bg-bg text-fg">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-20 flex h-screen w-56 flex-col border-r bg-surface">
-        <div className="px-4 py-4">
-          <div className="rounded-lg bg-white px-3 py-2.5">
-            <NivaBupaLogo className="h-9 w-auto" />
+      {/* Backdrop for the mobile drawer */}
+      {navOpen && (
+        <button
+          aria-label="Close menu"
+          onClick={() => setNavOpen(false)}
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+        />
+      )}
+
+      {/* Sidebar — fixed on desktop, off-canvas drawer on mobile */}
+      <aside
+        className={cn(
+          "fixed left-0 top-0 z-40 flex h-screen w-64 max-w-[82vw] flex-col border-r bg-surface transition-transform duration-200 lg:w-56 lg:translate-x-0",
+          navOpen ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
+        <div className="flex items-start justify-between px-4 py-4">
+          <div className="flex-1">
+            <div className="rounded-lg bg-white px-3 py-2.5">
+              <NivaBupaLogo className="h-9 w-auto" />
+            </div>
+            <div className="mt-2.5 border-t pt-2">
+              <div className="text-sm font-semibold leading-tight text-fg">Territory IQ</div>
+              <div className="text-[10px] text-fg-subtle">New Business Command Center</div>
+            </div>
           </div>
-          <div className="mt-2.5 border-t pt-2">
-            <div className="text-sm font-semibold leading-tight text-fg">Territory IQ</div>
-            <div className="text-[10px] text-fg-subtle">New Business Command Center</div>
-          </div>
+          <button aria-label="Close menu" onClick={() => setNavOpen(false)} className="-mr-1 ml-2 rounded-lg p-1.5 text-fg-muted hover:bg-surface-2 lg:hidden">
+            <X className="h-5 w-5" />
+          </button>
         </div>
-        <nav className="mt-2 flex-1 space-y-0.5 px-2">
+        <nav className="mt-2 flex-1 space-y-0.5 overflow-y-auto px-2">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href === "/pulse" && pathname === "/");
             return (
@@ -73,23 +96,32 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main */}
-      <div className="ml-56 flex min-h-screen flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b bg-bg/80 px-6 py-3 backdrop-blur">
+      <div className="flex min-h-screen flex-1 flex-col lg:ml-56">
+        <header className="sticky top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-bg/80 px-3 py-2.5 backdrop-blur sm:gap-3 sm:px-6 sm:py-3">
+          <button
+            aria-label="Open menu"
+            onClick={() => setNavOpen(true)}
+            className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border bg-surface text-fg-muted hover:bg-surface-2 lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <SnapshotSwitcher />
           <ComparePicker />
-          <div className="h-5 w-px bg-border" />
+          <div className="hidden h-5 w-px bg-border sm:block" />
           <FilterChips />
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
             <button
               onClick={() => setChatOpen(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-surface px-3 text-sm text-fg-muted hover:bg-surface-2"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border bg-surface px-2.5 text-sm text-fg-muted hover:bg-surface-2 sm:px-3"
             >
-              <MessageSquare className="h-4 w-4" /> Ask Territory IQ <kbd className="ml-1 rounded bg-surface-2 px-1 text-[10px]">/</kbd>
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Ask Territory IQ</span>
+              <kbd className="ml-1 hidden rounded bg-surface-2 px-1 text-[10px] sm:inline">/</kbd>
             </button>
           </div>
         </header>
-        <main className="flex-1 px-6 py-6">{children}</main>
+        <main className="flex-1 px-4 py-4 sm:px-6 sm:py-6">{children}</main>
       </div>
 
       {/* Ask Territory IQ — Phase 3 chat drawer */}

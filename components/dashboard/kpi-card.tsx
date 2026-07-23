@@ -42,12 +42,12 @@ export function KpiCard({
 
 export function PageHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
   return (
-    <div className="mb-5 flex items-end justify-between gap-4">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
       <div>
-        <h1 className="text-xl font-semibold text-fg">{title}</h1>
+        <h1 className="text-lg font-semibold text-fg sm:text-xl">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-fg-muted">{subtitle}</p>}
       </div>
-      {right}
+      {right && <div className="flex flex-wrap items-center gap-2">{right}</div>}
     </div>
   );
 }
