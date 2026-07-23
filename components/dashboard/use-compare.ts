@@ -18,7 +18,13 @@ export function useCompare(name: string): { data: CompareResult | null; loading:
     if (Object.keys(filters).length) params.set("filters", JSON.stringify(filters));
     fetch(`/api/metrics/${name}?${params.toString()}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((json) => alive && setData(json.data as CompareResult))
+      .then((json) => {
+        if (!alive) return;
+        // Only accept an actual compare result (has `cells`). An error response, or a plain
+        // metric result (e.g. when compare == active snapshot), has no cells -> treat as none.
+        const d = json?.data;
+        setData(d && Array.isArray(d.cells) ? (d as CompareResult) : null);
+      })
       .catch(() => alive && setData(null))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };

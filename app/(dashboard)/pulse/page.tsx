@@ -21,7 +21,7 @@ export default function PulsePage() {
   const trend = useMetric<TrendPoint[]>("daily_trend");
   const compare = useCompare("totals");
   const deltaFor = (key: string, goodWhen: "up" | "down"): KpiDelta | null => {
-    const cell = compare.data?.cells.find((c) => c.key === key);
+    const cell = compare.data?.cells?.find((c) => c.key === key);
     if (!cell || cell.delta === 0) return null;
     const up = cell.delta > 0;
     return { label: cell.display.delta, pct: cell.delta_pct, up, good: goodWhen === "up" ? up : !up };
