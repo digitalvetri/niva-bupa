@@ -1,13 +1,15 @@
 "use client";
 import * as React from "react";
-import { Save, Loader2, CheckCircle2, Upload, KeyRound, ShieldCheck } from "lucide-react";
+import { Save, Loader2, CheckCircle2, Upload, KeyRound, ShieldCheck, Sparkles } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle, Button, Input } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/dashboard/kpi-card";
 import { LoadingBlock } from "@/components/dashboard/states";
 import { PROVIDERS, defaultModelFor, type ProviderId } from "@/lib/bot/providers/types";
+import { IMAGE_PROVIDERS, imageProviderMeta, type ImageProviderId } from "@/lib/image";
 
 type LlmView = { provider: ProviderId | null; model: string | null; configured: boolean; keyLast4: string | null; source: "settings" | "env" | null };
-type Settings = { high_value_threshold: number; currency: string; agentPhones: Record<string, string>; llm: LlmView };
+type ImageView = { provider: ImageProviderId | null; model: string | null; accountLast4: string | null; keyLast4: string | null; configured: boolean };
+type Settings = { high_value_threshold: number; currency: string; agentPhones: Record<string, string>; llm: LlmView; imageGen: ImageView };
 
 export default function SettingsPage() {
   const [settings, setSettings] = React.useState<Settings | null>(null);
@@ -17,6 +19,11 @@ export default function SettingsPage() {
   const [provider, setProvider] = React.useState<ProviderId>("anthropic");
   const [apiKey, setApiKey] = React.useState("");
   const [model, setModel] = React.useState("");
+  // Image-gen form
+  const [imgProvider, setImgProvider] = React.useState<ImageProviderId>("pollinations");
+  const [imgKey, setImgKey] = React.useState("");
+  const [imgAccount, setImgAccount] = React.useState("");
+  const [imgModel, setImgModel] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [saved, setSaved] = React.useState<string | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -26,6 +33,8 @@ export default function SettingsPage() {
     setThreshold(String(s.high_value_threshold));
     if (s.llm.provider) setProvider(s.llm.provider);
     setModel(s.llm.model ?? "");
+    if (s.imageGen.provider) setImgProvider(s.imageGen.provider);
+    setImgModel(s.imageGen.model ?? "");
   }, []);
 
   React.useEffect(() => {
@@ -43,6 +52,8 @@ export default function SettingsPage() {
       setSaved(patch.agentPhonesCsv ? `Imported ${j.imported} agent phone${j.imported === 1 ? "" : "s"}` : label);
       setCsv("");
       setApiKey("");
+      setImgKey("");
+      setImgAccount("");
     } finally {
       setBusy(false);
       setTimeout(() => setSaved(null), 3000);
@@ -101,6 +112,65 @@ export default function SettingsPage() {
           {!llm.configured && <p className="text-xs text-pending">The bot is disabled until a provider key is configured (or ANTHROPIC_API_KEY is set in the environment).</p>}
         </CardBody>
       </Card>
+
+      {/* Report background image generator */}
+      {(() => {
+        const img = settings.imageGen;
+        const meta = imageProviderMeta(imgProvider);
+        const activeMeta = img.provider ? imageProviderMeta(img.provider) : undefined;
+        return (
+          <Card className="mb-4">
+            <CardHeader className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Report background image (AI)</CardTitle>
+              {img.configured && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-[color:var(--won)]/15 px-2 py-0.5 text-xs text-won">
+                  <ShieldCheck className="h-3.5 w-3.5" /> {activeMeta?.label ?? "configured"}{img.keyLast4 ? ` · ••••${img.keyLast4}` : ""}
+                </span>
+              )}
+            </CardHeader>
+            <CardBody className="space-y-3">
+              <p className="text-sm text-fg-muted">Renders an AI-designed branded background behind the performance posters on the <strong className="text-fg">Reports</strong> page. The image is decoration only — all numbers stay exact (rendered on top). Pollinations is free and needs no key.</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-fg-subtle">Provider</span>
+                  <select
+                    value={imgProvider}
+                    onChange={(e) => { setImgProvider(e.target.value as ImageProviderId); setImgModel(""); }}
+                    className="h-9 w-full rounded-lg border bg-surface px-3 text-sm text-fg focus:border-primary focus:outline-none"
+                  >
+                    {IMAGE_PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.free ? " — free" : ""}</option>)}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs font-medium text-fg-subtle">Model <span className="text-fg-subtle/70">(optional)</span></span>
+                  <Input value={imgModel} onChange={(e) => setImgModel(e.target.value)} placeholder={meta?.defaultModel} />
+                </label>
+              </div>
+              {meta?.needsAccount && (
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-fg-subtle">Cloudflare account ID</span>
+                  <Input autoComplete="off" value={imgAccount} onChange={(e) => setImgAccount(e.target.value)} placeholder={img.accountLast4 ? `••••${img.accountLast4} (leave blank to keep current)` : "account id"} />
+                </label>
+              )}
+              {meta?.needsKey && (
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium text-fg-subtle">API key</span>
+                  <Input type="password" autoComplete="off" value={imgKey} onChange={(e) => setImgKey(e.target.value)} placeholder={img.configured ? "•••••••••••• (leave blank to keep current)" : (meta?.keyHint ?? "API key")} />
+                </label>
+              )}
+              <p className="text-xs text-fg-subtle">{meta?.note}</p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={() => post({ imageGen: { provider: imgProvider, apiKey: imgKey, accountId: imgAccount, model: imgModel } }, "Image provider saved")} disabled={busy}>
+                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save image provider
+                </Button>
+                {img.configured && (
+                  <Button variant="ghost" size="sm" onClick={() => post({ imageGen: { clear: true } }, "Cleared")} disabled={busy}>Remove</Button>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+        );
+      })()}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>

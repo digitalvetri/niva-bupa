@@ -1,7 +1,8 @@
 "use client";
 import * as React from "react";
 import { toPng } from "html-to-image";
-import { Download, Loader2, ImageDown, Target } from "lucide-react";
+import { Download, Loader2, ImageDown, Target, Sparkles, RefreshCw, Settings2 } from "lucide-react";
+import Link from "next/link";
 import { Card, CardBody, Button, Input } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/dashboard/kpi-card";
 import { LoadingBlock, EmptyState, ErrorState } from "@/components/dashboard/states";
@@ -10,11 +11,46 @@ import { usePosterData } from "@/components/report/use-poster-data";
 import { Poster } from "@/components/report/poster";
 import type { BranchRow } from "@/lib/metrics/metrics";
 
+/** Shared AI-background state for all posters (one generation, reused across scopes). */
+function useBackground() {
+  const [dataUrl, setDataUrl] = React.useState<string | null>(null);
+  const [configured, setConfigured] = React.useState<boolean | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [on, setOn] = React.useState(true);
+
+  const fetchBg = React.useCallback(async (refresh: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/report/background", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ refresh }) });
+      const j = await r.json();
+      setConfigured(Boolean(j.configured));
+      if (j.dataUrl) {
+        setDataUrl(j.dataUrl);
+        setError(null); // a good image supersedes any prior transient failure
+      } else if (j.error) {
+        // Only surface the error if we have nothing to show; otherwise keep the existing art.
+        setDataUrl((cur) => { if (!cur) setError(j.error); return cur; });
+      }
+    } catch (e) {
+      setDataUrl((cur) => { if (!cur) setError((e as Error).message); return cur; });
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  React.useEffect(() => { fetchBg(false); }, [fetchBg]);
+
+  return { dataUrl: on ? dataUrl : null, rawUrl: dataUrl, configured, busy, error, on, setOn, regenerate: () => fetchBg(true) };
+}
+
 export default function ReportsPage() {
   const { snapshotId, loadingSnapshots } = useDashboard();
   const [branches, setBranches] = React.useState<string[] | null>(null);
   const [downloadingAll, setDownloadingAll] = React.useState(false);
   const nodes = React.useRef<Map<string, HTMLDivElement>>(new Map());
+  const bg = useBackground();
 
   React.useEffect(() => {
     if (!snapshotId) return;
@@ -58,16 +94,46 @@ export default function ReportsPage() {
         title="Reports"
         subtitle="Branded performance posters — one per branch + territory"
         right={
-          <Button size="sm" onClick={downloadAll} disabled={downloadingAll}>
-            {downloadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />} Download all ({scopes.length})
-          </Button>
+          <div className="flex items-center gap-2">
+            {bg.configured && (
+              <>
+                <label className="flex items-center gap-1.5 text-xs text-fg-muted">
+                  <input type="checkbox" checked={bg.on} onChange={(e) => bg.setOn(e.target.checked)} className="accent-primary" />
+                  <Sparkles className="h-3.5 w-3.5" /> AI background
+                </label>
+                <Button variant="outline" size="sm" onClick={bg.regenerate} disabled={bg.busy}>
+                  {bg.busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Regenerate
+                </Button>
+              </>
+            )}
+            <Button size="sm" onClick={downloadAll} disabled={downloadingAll}>
+              {downloadingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />} Download all ({scopes.length})
+            </Button>
+          </div>
         }
       />
+      {bg.configured === false && (
+        <Card className="mb-4 border-primary/30">
+          <CardBody className="flex flex-wrap items-center justify-between gap-3 py-3">
+            <div className="flex items-center gap-2 text-sm text-fg-muted">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Add an image-generation key to render an AI-designed branded background behind these posters. Numbers stay exact — the art is decoration only.
+            </div>
+            <Link href="/settings"><Button size="sm" variant="outline"><Settings2 className="h-3.5 w-3.5" /> Configure in Settings</Button></Link>
+          </CardBody>
+        </Card>
+      )}
+      {bg.configured && bg.error && (
+        <Card className="mb-4 border-red-500/30">
+          <CardBody className="py-3 text-sm text-red-500">Image generation failed: {bg.error}. Posters render without the AI background.</CardBody>
+        </Card>
+      )}
       <div className="space-y-6">
         {scopes.map((scope) => (
           <PosterCard
             key={scope ?? "__territory__"}
             scope={scope}
+            backgroundUrl={bg.dataUrl}
             registerNode={(el) => { const k = scope ?? "__territory__"; if (el) nodes.current.set(k, el); else nodes.current.delete(k); }}
             onDownload={exportNode}
           />
@@ -77,7 +143,7 @@ export default function ReportsPage() {
   );
 }
 
-function PosterCard({ scope, registerNode, onDownload }: { scope: string | null; registerNode: (el: HTMLDivElement | null) => void; onDownload: (node: HTMLDivElement, filename: string) => Promise<void> }) {
+function PosterCard({ scope, backgroundUrl, registerNode, onDownload }: { scope: string | null; backgroundUrl: string | null; registerNode: (el: HTMLDivElement | null) => void; onDownload: (node: HTMLDivElement, filename: string) => Promise<void> }) {
   const { snapshotId } = useDashboard();
   const { data, loading, error } = usePosterData(scope);
   const posterRef = React.useRef<HTMLDivElement>(null);
@@ -127,7 +193,7 @@ function PosterCard({ scope, registerNode, onDownload }: { scope: string | null;
       <CardBody>
         {loading || !data ? <LoadingBlock className="h-72" /> : error ? <ErrorState message={error} /> : (
           <div className="overflow-x-auto">
-            <Poster ref={posterRef} data={data} />
+            <Poster ref={posterRef} data={data} backgroundUrl={backgroundUrl} />
           </div>
         )}
       </CardBody>

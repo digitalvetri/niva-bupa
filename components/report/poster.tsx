@@ -30,7 +30,9 @@ function achievementColor(pct: number) {
   return pct >= 70 ? C.green : pct >= 30 ? C.amber : C.red;
 }
 
-export const Poster = React.forwardRef<HTMLDivElement, { data: PosterData }>(function Poster({ data }, ref) {
+type PosterProps = { data: PosterData; backgroundUrl?: string | null };
+
+export const Poster = React.forwardRef<HTMLDivElement, PosterProps>(function Poster({ data, backgroundUrl }, ref) {
   const t = data.totals;
   const bizDays = data.daily.filter((d) => d.logged > 0).length;
   const zeroDays = data.daily.filter((d) => d.logged === 0).length;
@@ -38,15 +40,27 @@ export const Poster = React.forwardRef<HTMLDivElement, { data: PosterData }>(fun
   const maxDaily = Math.max(1, ...data.daily.map((d) => d.logged));
   const achievement = data.target ? formatPct(t.issued_premium, data.target) : null;
   const observations = buildObservations(data, { bizDays, zeroDays, topDay });
+  const hasArt = Boolean(backgroundUrl);
 
   return (
-    <div ref={ref} style={{ width: 1040, background: C.bg, color: C.ink, fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
-      {/* Header */}
-      <div style={{ background: C.navy, padding: "18px 24px", display: "flex", alignItems: "center", gap: 18 }}>
-        <div style={{ background: "#fff", borderRadius: 10, padding: "8px 10px" }}>
+    <div ref={ref} style={{ position: "relative", width: 1040, background: C.bg, color: C.ink, fontFamily: "'Segoe UI', system-ui, sans-serif", overflow: "hidden" }}>
+      {/* AI-generated decorative watermark — sits behind everything at low opacity; numbers stay HTML on top */}
+      {hasArt && (
+        <div aria-hidden style={{ position: "absolute", inset: 0, backgroundImage: `url(${backgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center", opacity: 0.05, zIndex: 0 }} />
+      )}
+      <div style={{ position: "relative", zIndex: 1 }}>
+      {/* Header — AI art as a hero band under a navy gradient so the logo/title stay crisp */}
+      <div style={{ position: "relative", background: C.navy, padding: "18px 24px", display: "flex", alignItems: "center", gap: 18, overflow: "hidden" }}>
+        {hasArt && (
+          <div aria-hidden style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${backgroundUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+            <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, ${C.navy}f2 0%, ${C.navy}d9 45%, ${C.navy}80 100%)` }} />
+          </div>
+        )}
+        <div style={{ position: "relative", zIndex: 1, background: "#fff", borderRadius: 10, padding: "8px 10px" }}>
           <NivaBupaLogo className="" />
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ position: "relative", zIndex: 1, flex: 1 }}>
           <div style={{ color: "#fff", fontSize: 26, fontWeight: 800, letterSpacing: 0.5 }}>
             {data.branch ? `${data.scopeLabel.toUpperCase()} — BRANCH PERFORMANCE` : "TERRITORY PERFORMANCE ANALYSIS"}
           </div>
@@ -54,14 +68,16 @@ export const Poster = React.forwardRef<HTMLDivElement, { data: PosterData }>(fun
             PERIOD: {fmtDate(data.period.start)} – {fmtDate(data.period.end)}
           </div>
         </div>
-        {achievement != null ? (
-          <Gauge label="Business Achievement" pct={achievement} sub={`${formatINR(t.issued_premium)} / ${formatINR(data.target!)}`} />
-        ) : (
-          <div style={{ textAlign: "right", color: "#cdd7ee" }}>
-            <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1 }}>Total Business</div>
-            <div style={{ color: "#fff", fontSize: 30, fontWeight: 800 }}>{formatINR(t.logged_premium)}</div>
-          </div>
-        )}
+        <div style={{ position: "relative", zIndex: 1 }}>
+          {achievement != null ? (
+            <Gauge label="Business Achievement" pct={achievement} sub={`${formatINR(t.issued_premium)} / ${formatINR(data.target!)}`} />
+          ) : (
+            <div style={{ textAlign: "right", color: "#cdd7ee" }}>
+              <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 1 }}>Total Business</div>
+              <div style={{ color: "#fff", fontSize: 30, fontWeight: 800 }}>{formatINR(t.logged_premium)}</div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* KPI row */}
@@ -121,6 +137,7 @@ export const Poster = React.forwardRef<HTMLDivElement, { data: PosterData }>(fun
       <div style={{ background: C.navy, color: "#cdd7ee", fontSize: 12, padding: "10px 24px", marginTop: 8, display: "flex", justifyContent: "space-between" }}>
         <span>Territory IQ · Niva Bupa Health Insurance</span>
         <span>Generated from uploaded New Business report{achievement == null ? " · set a branch target for achievement %" : ""}</span>
+      </div>
       </div>
     </div>
   );

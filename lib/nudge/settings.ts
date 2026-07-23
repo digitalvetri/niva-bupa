@@ -1,6 +1,7 @@
 // Tenant settings (§9 / §2.2): high-value threshold + agent_code -> phone mapping. Stored in
 // Tenant.settings JSON to avoid a schema migration.
 import type { PrismaClient } from "@prisma/client";
+import type { ImageGenSettings } from "../image";
 
 export type LlmSettings = { provider?: string; apiKey?: string; model?: string };
 
@@ -9,6 +10,7 @@ export type TenantSettings = {
   currency: string;
   agentPhones: Record<string, string>; // agentCode -> phone
   llm?: LlmSettings; // bot provider + API key (stored server-side; masked on read)
+  imageGen?: ImageGenSettings; // report-background image provider + key (server-side; masked on read)
   branchTargets?: Record<string, number>; // branch -> business target (₹) for report achievement %
 };
 
@@ -29,6 +31,8 @@ export async function updateSettings(db: PrismaClient, tenantId: string, patch: 
     branchTargets: { ...current.branchTargets, ...(patch.branchTargets ?? {}) },
     // Merge llm so e.g. changing the model doesn't wipe the stored key.
     llm: patch.llm ? { ...current.llm, ...patch.llm } : current.llm,
+    // Same for the image-gen provider config.
+    imageGen: patch.imageGen ? { ...current.imageGen, ...patch.imageGen } : current.imageGen,
   };
   await db.tenant.update({ where: { id: tenantId }, data: { settings: next as object } });
   return next;
