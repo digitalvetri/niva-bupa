@@ -51,7 +51,7 @@ describe("§7.1 metric catalog exposed as tools", () => {
   });
   it("every plain metric tool uses the shared Filters schema (locked down)", () => {
     for (const t of buildTools().filter((t) => t.name !== "none" && t.name !== "snapshot_compare")) {
-      expect(t.input_schema).toBe(FILTERS_SCHEMA);
+      expect(t.parameters).toBe(FILTERS_SCHEMA);
     }
     expect((FILTERS_SCHEMA as { additionalProperties: boolean }).additionalProperties).toBe(false);
   });

@@ -1,6 +1,6 @@
 // §7.3 Narrator — gets the user question + tool results JSON + language hint, and writes the
 // answer. It must quote ONLY numbers present in the tool results. Streamed over SSE.
-import { anthropic, BOT_MODEL } from "./anthropic";
+import type { LlmProvider } from "./providers/types";
 import type { LanguageHint } from "./transliterate";
 
 const NARRATOR_SYSTEM = `You write short answers about an insurance New Business report. You are given the user's question and the JSON results of deterministic metric tools. The tool results are the ONLY source of truth for numbers.
@@ -37,16 +37,6 @@ function buildUserContent(input: NarratorInput): string {
 }
 
 /** Stream the narration; yields text deltas. Accumulate them for the final message. */
-export async function* narrate(input: NarratorInput): AsyncGenerator<string, void, unknown> {
-  const stream = anthropic().messages.stream({
-    model: BOT_MODEL,
-    max_tokens: 1024,
-    system: NARRATOR_SYSTEM,
-    messages: [{ role: "user", content: buildUserContent(input) }],
-  });
-  for await (const event of stream) {
-    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-      yield event.delta.text;
-    }
-  }
+export async function* narrate(provider: LlmProvider, input: NarratorInput): AsyncGenerator<string, void, unknown> {
+  yield* provider.narrate(NARRATOR_SYSTEM, buildUserContent(input));
 }

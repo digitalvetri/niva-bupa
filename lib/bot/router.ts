@@ -1,9 +1,9 @@
 // §7.1 Intent Router — a Claude call whose tools ARE the metric catalog. It picks tool(s) +
 // filters; it never returns numbers. Server then executes the real metric functions.
-import { anthropic, BOT_MODEL } from "./anthropic";
 import { buildTools, METRIC_TOOL_NAMES } from "./tools";
 import { normalizeFilters } from "./transliterate";
 import { sanitizeHistoryForRouter } from "./pii";
+import type { LlmProvider } from "./providers/types";
 import type { Filters } from "../metrics/types";
 
 export type RouterCall = { metricId: string; filters: Filters };
@@ -34,26 +34,17 @@ Rules:
 - If the question needs interpretation the tools can't fully give (e.g. "why is Salem underperforming"), still call the closest metric(s).
 - If the question is out of scope for this report (weather, policy wording, medical/IRDAI/legal advice, chit-chat), call the "none" tool.`;
 
-export async function routeQuestion(history: ChatTurn[]): Promise<RouterResult> {
-  const tools = buildTools();
-  const resp = await anthropic().messages.create({
-    model: BOT_MODEL,
-    max_tokens: 1024,
-    system: ROUTER_SYSTEM,
-    tools: tools as never,
-    tool_choice: { type: "any" }, // force a tool call — never a bare text answer
-    // §11: strip prior assistant narration (may contain row-level customer names) before routing.
-    messages: sanitizeHistoryForRouter(history).map((t) => ({ role: t.role, content: t.content })),
-  });
+export async function routeQuestion(provider: LlmProvider, history: ChatTurn[]): Promise<RouterResult> {
+  // §11: strip prior assistant narration (may contain row-level customer names) before routing.
+  const toolCalls = await provider.route(ROUTER_SYSTEM, sanitizeHistoryForRouter(history), buildTools());
 
-  const toolUses = resp.content.filter((b): b is Extract<typeof b, { type: "tool_use" }> => b.type === "tool_use");
-  if (toolUses.length === 0) {
-    // Should not happen with tool_choice:any, but degrade gracefully.
+  if (toolCalls.length === 0) {
+    // Should not happen (tool use is forced), but degrade gracefully.
     return { scope: "out", message: "I couldn't map that to the report. Try asking about premium, branches, agents, or stuck cases." };
   }
 
-  const noneCall = toolUses.find((t) => t.name === "none");
-  if (noneCall && !toolUses.some((t) => METRIC_TOOL_NAMES.has(t.name))) {
+  const noneCall = toolCalls.find((t) => t.name === "none");
+  if (noneCall && !toolCalls.some((t) => METRIC_TOOL_NAMES.has(t.name) || t.name === "snapshot_compare")) {
     const reason = (noneCall.input as { reason?: string })?.reason;
     return {
       scope: "out",
@@ -61,7 +52,7 @@ export async function routeQuestion(history: ChatTurn[]): Promise<RouterResult> 
     };
   }
 
-  const calls: RouterCall[] = toolUses
+  const calls: RouterCall[] = toolCalls
     .filter((t) => METRIC_TOOL_NAMES.has(t.name) || t.name === "snapshot_compare")
     .slice(0, MAX_TOOLS_PER_TURN)
     .map((t) => ({ metricId: t.name, filters: normalizeFilters(t.input as Filters) }));

@@ -2,10 +2,13 @@
 // Tenant.settings JSON to avoid a schema migration.
 import type { PrismaClient } from "@prisma/client";
 
+export type LlmSettings = { provider?: string; apiKey?: string; model?: string };
+
 export type TenantSettings = {
   high_value_threshold: number;
   currency: string;
   agentPhones: Record<string, string>; // agentCode -> phone
+  llm?: LlmSettings; // bot provider + API key (stored server-side; masked on read)
 };
 
 const DEFAULTS: TenantSettings = { high_value_threshold: 50000, currency: "INR", agentPhones: {} };
@@ -18,7 +21,13 @@ export async function getSettings(db: PrismaClient, tenantId: string): Promise<T
 
 export async function updateSettings(db: PrismaClient, tenantId: string, patch: Partial<TenantSettings>): Promise<TenantSettings> {
   const current = await getSettings(db, tenantId);
-  const next: TenantSettings = { ...current, ...patch, agentPhones: { ...current.agentPhones, ...(patch.agentPhones ?? {}) } };
+  const next: TenantSettings = {
+    ...current,
+    ...patch,
+    agentPhones: { ...current.agentPhones, ...(patch.agentPhones ?? {}) },
+    // Merge llm so e.g. changing the model doesn't wipe the stored key.
+    llm: patch.llm ? { ...current.llm, ...patch.llm } : current.llm,
+  };
   await db.tenant.update({ where: { id: tenantId }, data: { settings: next as object } });
   return next;
 }

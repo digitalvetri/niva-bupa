@@ -10,6 +10,8 @@ import { narrate } from "./narrator";
 import { detectLanguage } from "./transliterate";
 import { checkNumericDrift } from "./numericGuard";
 import { captureError } from "../observability";
+import { getProvider, resolveLlmConfig } from "./providers";
+import { getSettings } from "../nudge/settings";
 
 export type ChatContext = { tenantId: string; userId: string };
 export type ChatBody = { snapshotId: string; messages: ChatTurn[]; filters?: Filters; compareSnapshotId?: string };
@@ -40,13 +42,22 @@ export async function* runTurn(db: PrismaClient, ctx: ChatContext, body: ChatBod
     await db.chatMessage.create({ data: { tenantId: ctx.tenantId, userId: ctx.userId, snapshotId: body.snapshotId, role: "assistant", content: assistantText, toolTrace: toolTrace as object } });
   };
 
+  // 0. Resolve the LLM provider (tenant-configured key wins; else Anthropic env).
+  const settings = await getSettings(db, ctx.tenantId);
+  const llmConfig = resolveLlmConfig(settings.llm);
+  if (!llmConfig) {
+    yield { type: "error", message: "No AI provider is configured. Add an API key in Settings." };
+    return;
+  }
+  const provider = getProvider(llmConfig);
+
   // 1. Route (LLM). Fail with a human-readable message, not a raw SDK error.
   let routed;
   try {
-    routed = await routeQuestion(history);
+    routed = await routeQuestion(provider, history);
   } catch (e) {
-    captureError(e, { stage: "router", tenant: ctx.tenantId });
-    yield { type: "error", message: "The assistant is unavailable right now (routing failed). Please try again in a moment." };
+    captureError(e, { stage: "router", tenant: ctx.tenantId, provider: llmConfig.provider });
+    yield { type: "error", message: `The AI provider (${llmConfig.provider}) rejected the request — check the API key and model in Settings.` };
     return;
   }
 
@@ -92,7 +103,7 @@ export async function* runTurn(db: PrismaClient, ctx: ChatContext, body: ChatBod
 
   // 3. Narrate (streaming). Numbers come only from toolResults.
   try {
-    for await (const delta of narrate({ question, language: detectLanguage(question), toolResults, needsInterpretation: routed.needsInterpretation })) {
+    for await (const delta of narrate(provider, { question, language: detectLanguage(question), toolResults, needsInterpretation: routed.needsInterpretation })) {
       assistantText += delta;
       yield { type: "token", text: delta };
     }

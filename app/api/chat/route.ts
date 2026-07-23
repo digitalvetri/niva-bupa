@@ -5,7 +5,8 @@ import { contextFromRequest } from "@/lib/auth";
 import { requireSnapshot, scopedFilters, AccessError } from "@/lib/access";
 import { rateLimit } from "@/lib/ratelimit";
 import { runTurn, type ChatBody } from "@/lib/bot/runTurn";
-import { hasAnthropicCredentials } from "@/lib/bot/anthropic";
+import { resolveLlmConfig } from "@/lib/bot/providers";
+import { getSettings } from "@/lib/nudge/settings";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,8 +16,9 @@ const CHAT_LIMIT = { limit: 30, windowMs: 60_000 }; // 30 turns/min/user
 export async function POST(req: NextRequest) {
   const ctx = contextFromRequest(req);
   if (!ctx.tenantId) return json({ error: "Missing tenant" }, 401);
-  if (!hasAnthropicCredentials()) {
-    return json({ error: "The bot needs Anthropic credentials. Set ANTHROPIC_API_KEY (or run `ant auth login`) and restart the server." }, 503);
+  const settings = await getSettings(prisma, ctx.tenantId);
+  if (!resolveLlmConfig(settings.llm)) {
+    return json({ error: "No AI provider configured. Add an API key (Anthropic, Groq, Gemini, or OpenAI) in Settings." }, 503);
   }
 
   const rl = rateLimit(`chat:${ctx.tenantId}:${ctx.userId}`, CHAT_LIMIT.limit, CHAT_LIMIT.windowMs);

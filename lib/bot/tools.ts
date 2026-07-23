@@ -24,20 +24,20 @@ export const FILTERS_SCHEMA = {
   },
 } as const;
 
-export type AnthropicTool = { name: string; description: string; input_schema: typeof FILTERS_SCHEMA | Record<string, unknown> };
+import type { LlmTool } from "./providers/types";
 
-/** Metric tools + a `none` escape hatch for out-of-scope questions (§7.2). */
-export function buildTools(): AnthropicTool[] {
-  const metricTools: AnthropicTool[] = catalogManifest().map((m) => ({
+/** Metric tools + a `none` escape hatch for out-of-scope questions (§7.2). Provider-agnostic. */
+export function buildTools(): LlmTool[] {
+  const metricTools: LlmTool[] = catalogManifest().map((m) => ({
     name: m.id,
     description: `${m.description}. Returns a ${m.outputShape}. Call with a Filters object (all fields optional).`,
-    input_schema: FILTERS_SCHEMA,
+    parameters: FILTERS_SCHEMA,
   }));
   // snapshot_compare works over another metric across the active + comparison snapshots (§6.2).
   metricTools.push({
     name: "snapshot_compare",
     description: "Compare a metric week-over-week across the active snapshot and the selected comparison snapshot (value, prev, delta, delta_pct). Use for 'which branches improved', 'compared to last week', WoW change. Set `metric` to the base metric to diff.",
-    input_schema: {
+    parameters: {
       type: "object",
       additionalProperties: false,
       properties: {
@@ -51,7 +51,7 @@ export function buildTools(): AnthropicTool[] {
     name: "none",
     description:
       "Use ONLY when the question is out of scope for this New Business report — weather, policy wording, medical/IRDAI/legal advice, general chit-chat. Do NOT use for any question answerable from the report data.",
-    input_schema: { type: "object", additionalProperties: false, properties: { reason: { type: "string" } } },
+    parameters: { type: "object", additionalProperties: false, properties: { reason: { type: "string" } } },
   });
   return metricTools;
 }

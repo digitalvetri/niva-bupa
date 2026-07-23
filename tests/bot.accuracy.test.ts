@@ -3,13 +3,17 @@
 // (real router + narrator, exact-equality + no-drift) runs only with Anthropic credentials.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma, ensureFixture } from "./helpers";
-import { hasAnthropicCredentials } from "../lib/bot/anthropic";
+import { resolveLlmConfig, getProvider } from "../lib/bot/providers";
 import { routeQuestion, type ChatTurn } from "../lib/bot/router";
 import { narrate } from "../lib/bot/narrator";
 import { detectLanguage, normalizeFilters } from "../lib/bot/transliterate";
 import { checkNumericDrift, resultsContain } from "../lib/bot/numericGuard";
 import { getMetric } from "../lib/metrics/catalog";
 import type { Filters } from "../lib/metrics/types";
+
+// Live half runs whenever ANY provider is resolvable (tenant settings aren't available here, so
+// this uses the env fallback — set ANTHROPIC_API_KEY, or ANTHROPIC_MODEL for a specific model).
+const LLM_CONFIG = resolveLlmConfig();
 
 let sid = "";
 
@@ -79,8 +83,10 @@ describe("§14 harness — ground-truth resolvers (credential-free)", () => {
 });
 
 // ── Live: real router + narrator, exact numeric equality + no drift ────────────────
-const RUN = hasAnthropicCredentials();
+const RUN = LLM_CONFIG !== null;
 (RUN ? describe : describe.skip)("§14 live accuracy — numbers equal the engine, narrator invents nothing", () => {
+  // Guard: the describe body is evaluated even when skipped, so only build the provider when RUN.
+  const provider = RUN ? getProvider(LLM_CONFIG!) : (null as never);
   beforeAll(async () => {
     sid = (await ensureFixture()).snapshotId;
   });
@@ -89,7 +95,7 @@ const RUN = hasAnthropicCredentials();
   });
 
   async function pipeline(history: ChatTurn[]) {
-    const routed = await routeQuestion(history);
+    const routed = await routeQuestion(provider, history);
     if (routed.scope === "out") return { scope: "out" as const, message: routed.message };
     const results: unknown[] = [];
     for (const call of routed.calls) {
@@ -98,7 +104,7 @@ const RUN = hasAnthropicCredentials();
     }
     const question = [...history].reverse().find((m) => m.role === "user")!.content;
     let narration = "";
-    for await (const t of narrate({ question, language: detectLanguage(question), toolResults: results })) narration += t;
+    for await (const t of narrate(provider, { question, language: detectLanguage(question), toolResults: results })) narration += t;
     return { scope: "in" as const, metrics: routed.calls.map((c) => c.metricId), results, narration, drift: checkNumericDrift(narration, results) };
   }
 
@@ -125,9 +131,9 @@ const RUN = hasAnthropicCredentials();
 });
 
 if (!RUN) {
-  describe("§14 live accuracy — SKIPPED (no Anthropic credentials)", () => {
-    it("set ANTHROPIC_API_KEY (or run `ant auth login`), restart, and re-run to execute the live suite", () => {
-      expect(hasAnthropicCredentials()).toBe(false);
+  describe("§14 live accuracy — SKIPPED (no AI provider configured)", () => {
+    it("set ANTHROPIC_API_KEY (or configure a provider key in Settings), then re-run the live suite", () => {
+      expect(resolveLlmConfig()).toBeNull();
     });
   });
 }
