@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SnapshotSwitcher } from "./snapshot-switcher";
@@ -25,8 +25,18 @@ const NAV = [
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [chatOpen, setChatOpen] = React.useState(false);
   const [navOpen, setNavOpen] = React.useState(false); // mobile off-canvas sidebar
+
+  // Carry the selected snapshot / compare / global filters across nav so navigating between
+  // screens doesn't reset to the default (newest) snapshot. Pagination (`page`) is dropped.
+  const navQuery = React.useMemo(() => {
+    const q = new URLSearchParams(Array.from(searchParams.entries()));
+    q.delete("page");
+    const s = q.toString();
+    return s ? `?${s}` : "";
+  }, [searchParams]);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -80,7 +90,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             return (
               <Link
                 key={href}
-                href={href}
+                href={`${href}${navQuery}`}
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
                   active ? "bg-primary/15 text-primary" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
