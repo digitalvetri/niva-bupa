@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage, Menu, X } from "lucide-react";
+import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage, Menu, X, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SnapshotSwitcher } from "./snapshot-switcher";
 import { ComparePicker } from "./compare-picker";
@@ -102,7 +102,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="px-4 py-3 text-[10px] text-fg-subtle">DigitalVetri.AI · v1</div>
+        <div className="mt-auto px-2 pb-2">
+          <button
+            onClick={async () => { await fetch("/api/logout", { method: "POST" }); window.location.href = "/login"; }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+          <div className="px-3 pt-2 text-[10px] text-fg-subtle">DigitalVetri.AI · v1</div>
+        </div>
       </aside>
 
       {/* Main — min-w-0 lets the column shrink to the viewport so wide content (posters) scales
