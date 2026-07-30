@@ -29,11 +29,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = React.useState(false);
   const [navOpen, setNavOpen] = React.useState(false); // mobile off-canvas sidebar
 
-  // Carry the selected snapshot / compare / global filters across nav so navigating between
-  // screens doesn't reset to the default (newest) snapshot. Pagination (`page`) is dropped.
+  // Carry only the view context — the selected snapshot + compare — across sidebar navigation, so
+  // switching screens keeps the chosen upload but does NOT drag along branch/stage/product filters.
+  // (Sticky filters made e.g. a "branch=Erode" drill-down silently scope every page, so the
+  // territory-wide Pulse showed one branch's numbers.) Filters stay scoped to where they're set.
   const navQuery = React.useMemo(() => {
-    const q = new URLSearchParams(Array.from(searchParams.entries()));
-    q.delete("page");
+    const q = new URLSearchParams();
+    const snapshot = searchParams.get("snapshot");
+    const compare = searchParams.get("compare");
+    if (snapshot) q.set("snapshot", snapshot);
+    if (compare) q.set("compare", compare);
     const s = q.toString();
     return s ? `?${s}` : "";
   }, [searchParams]);
