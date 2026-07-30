@@ -2,6 +2,7 @@ node_modules/
 .next/
 .env
 .env.local
+.neon.env
 *.tsbuildinfo
 next-env.d.ts
 prisma/*.db
