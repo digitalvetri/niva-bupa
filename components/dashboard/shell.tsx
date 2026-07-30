@@ -2,7 +2,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage, Menu, X, LogOut } from "lucide-react";
+import { Activity, Building2, KanbanSquare, Table2, UploadCloud, MessageSquare, Boxes, Users, Settings, FileImage, Menu, X, LogOut, PhoneCall } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SnapshotSwitcher } from "./snapshot-switcher";
 import { ComparePicker } from "./compare-picker";
@@ -13,6 +13,7 @@ import { NivaBupaLogo } from "@/components/brand/niva-bupa-logo";
 
 const NAV = [
   { href: "/pulse", label: "Pulse", icon: Activity },
+  { href: "/action", label: "Call List", icon: PhoneCall },
   { href: "/branches", label: "Branches", icon: Building2 },
   { href: "/pipeline", label: "Pipeline", icon: KanbanSquare },
   { href: "/products", label: "Products", icon: Boxes },
