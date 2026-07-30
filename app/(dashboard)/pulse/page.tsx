@@ -7,6 +7,7 @@ import { useMetric } from "@/components/dashboard/use-metric";
 import { useCompare } from "@/components/dashboard/use-compare";
 import { useDashboard } from "@/components/dashboard/provider";
 import { ExecSummary } from "@/components/dashboard/exec-summary";
+import { TargetProgress } from "@/components/dashboard/target-progress";
 import type { KpiDelta } from "@/components/dashboard/kpi-card";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { BarList } from "@/components/charts/bar-list";
@@ -56,6 +57,9 @@ export default function PulsePage() {
           <KpiCard label="Stuck Premium" value={totals.data.display.stuck} sub={`${totals.data.stuck_count} cases pending`} accent="action" delta={deltaFor("stuck_premium", "down")} />
         </div>
       ) : null}
+
+      {/* Territory achievement vs target (shows when branch targets are configured) */}
+      <TargetProgress />
 
       {/* Attention banner */}
       <AttentionBanner totals={totals.data} funnel={funnel.data} />
