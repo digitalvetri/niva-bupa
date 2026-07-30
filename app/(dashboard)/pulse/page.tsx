@@ -6,6 +6,7 @@ import { LoadingCards, LoadingBlock, ErrorState, EmptyState } from "@/components
 import { useMetric } from "@/components/dashboard/use-metric";
 import { useCompare } from "@/components/dashboard/use-compare";
 import { useDashboard } from "@/components/dashboard/provider";
+import { ExecSummary } from "@/components/dashboard/exec-summary";
 import type { KpiDelta } from "@/components/dashboard/kpi-card";
 import { TrendChart } from "@/components/charts/trend-chart";
 import { BarList } from "@/components/charts/bar-list";
@@ -38,6 +39,9 @@ export default function PulsePage() {
   return (
     <>
       <PageHeader title="Pulse" subtitle="Territory-wide new business at a glance" />
+
+      {/* AI Executive Summary */}
+      <ExecSummary />
 
       {/* KPI row */}
       {totals.loading ? (
