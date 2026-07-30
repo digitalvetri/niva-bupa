@@ -3,16 +3,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isValidSession, COOKIE_NAME } from "@/lib/auth-session";
 
-const PUBLIC_PATHS = ["/login", "/api/login"];
+// "/" is the public marketing landing; /login and /api/login are the auth entry points.
+const PUBLIC_PATHS = ["/", "/login", "/api/login"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const authed = await isValidSession(req.cookies.get(COOKIE_NAME)?.value);
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)));
 
   if (isPublic) {
-    // Already signed in and visiting /login → send to the dashboard.
-    if (authed && pathname === "/login") return NextResponse.redirect(new URL("/pulse", req.url));
+    // Already signed in and visiting the landing or /login → go straight to the dashboard.
+    if (authed && (pathname === "/login" || pathname === "/")) return NextResponse.redirect(new URL("/pulse", req.url));
     return NextResponse.next();
   }
 

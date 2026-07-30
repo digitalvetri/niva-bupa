@@ -49,7 +49,7 @@ export default function PulsePage() {
       ) : totals.error ? (
         <ErrorState message={totals.error} />
       ) : totals.data ? (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="tiq-fade-up grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard label="Logged Premium" value={totals.data.display.logged} sub={`${totals.data.case_count} cases`} accent="primary" delta={deltaFor("logged_premium", "up")} />
           <KpiCard label="Issued Premium" value={totals.data.display.issued} sub={`${totals.data.issued_count} issued`} accent="won" delta={deltaFor("issued_premium", "up")} />
           <KpiCard label="Conversion" value={`${totals.data.conversion_pct}%`} sub={`${totals.data.issued_count}/${totals.data.case_count}`} accent="neutral" delta={deltaFor("conversion_pct", "up")} />
