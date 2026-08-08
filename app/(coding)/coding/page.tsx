@@ -4,7 +4,6 @@ import { Target, CheckCircle2, Clock, Building2, Users, Copy, XCircle, Star } fr
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/primitives";
 import { PageHeader, KpiCard } from "@/components/dashboard/kpi-card";
 import { LoadingBlock, LoadingCards, EmptyState } from "@/components/dashboard/states";
-import { BarList } from "@/components/charts/bar-list";
 import { useCoding, useCodingData } from "@/components/coding/provider";
 import { CodingUpload } from "@/components/coding/upload";
 import type { CodingTotals, CodingRankRow } from "@/lib/coding/metrics";
@@ -64,14 +63,14 @@ export default function CodingDashboard() {
               <CardHeader><CardTitle>Top Territory Heads</CardTitle></CardHeader>
               <CardBody>
                 {leaderboard.loading || !leaderboard.data ? <LoadingBlock className="h-40" /> :
-                  <BarList items={leaderboard.data.slice(0, 8).map((r) => ({ label: r.name, value: r.total, count: r.verified }))} />}
+                  <CountBars items={leaderboard.data.slice(0, 8).map((r) => ({ label: r.name, total: r.total, verified: r.verified }))} />}
               </CardBody>
             </Card>
             <Card>
               <CardHeader><CardTitle>Top Branches</CardTitle></CardHeader>
               <CardBody>
                 {branches.loading || !branches.data ? <LoadingBlock className="h-40" /> :
-                  <BarList items={branches.data.slice(0, 8).map((r) => ({ label: r.name, value: r.total, count: r.verified }))} />}
+                  <CountBars items={branches.data.slice(0, 8).map((r) => ({ label: r.name, total: r.total, verified: r.verified }))} />}
               </CardBody>
             </Card>
           </div>
@@ -82,6 +81,24 @@ export default function CodingDashboard() {
         </>
       )}
     </>
+  );
+}
+
+function CountBars({ items }: { items: { label: string; total: number; verified: number }[] }) {
+  const max = Math.max(1, ...items.map((i) => i.total));
+  return (
+    <div className="flex flex-col gap-2.5">
+      {items.map((it) => (
+        <div key={it.label} className="flex items-center gap-3 text-sm">
+          <div className="w-28 shrink-0 truncate text-fg-muted sm:w-36" title={it.label}>{it.label}</div>
+          <div className="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(3, (it.total / max) * 100)}%` }} />
+          </div>
+          <div className="w-20 shrink-0 text-right tabular-nums"><span className="font-bold text-fg">{it.total}</span> <span className="text-xs text-fg-subtle">leads</span></div>
+          <div className="w-14 shrink-0 text-right text-xs font-semibold tabular-nums text-won">{it.verified} ✓</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

@@ -29,10 +29,16 @@ export default function Leads() {
   const master = useCodingData<CodingMasterLists>("master");
   const params = Object.fromEntries(Object.entries(f).filter(([, v]) => v)) as Record<string, string>;
   const { data, loading: l } = useCodingData<CodingLeadRow[]>("leads", params);
+  const [rows, setRows] = React.useState<CodingLeadRow[]>([]);
+  React.useEffect(() => { setRows(data ?? []); }, [data]);
+
+  async function setStatus(id: string, status: string) {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, status } : r))); // optimistic
+    await fetch("/api/coding/lead", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status }) }).catch(() => {});
+  }
 
   if (!snapshotId && !loading) return (<><PageHeader title="Leads" /><EmptyState title="No upload yet" hint="Upload the Mission 300 file." /></>);
   const m = master.data;
-  const rows = data ?? [];
 
   return (
     <>
@@ -64,7 +70,19 @@ export default function Leads() {
                   <Td className="text-fg-muted">{r.bdm ?? "—"}</Td>
                   <Td className="text-fg-muted">{r.source ?? "—"}</Td>
                   <Td className="text-fg-muted">{r.experience ?? "—"}</Td>
-                  <Td><span className={`inline-block rounded-md px-2 py-0.5 text-xs font-medium ${STATUS_CLS[r.status] ?? "bg-surface-2 text-fg-muted"}`}>{r.status}</span></Td>
+                  <Td>
+                    <select
+                      value={r.status}
+                      onChange={(e) => setStatus(r.id, e.target.value)}
+                      className={`cursor-pointer rounded-md border-0 px-2 py-1 text-xs font-semibold outline-none ${STATUS_CLS[r.status] ?? "bg-surface-2 text-fg-muted"}`}
+                      title="Change status — pick Verified to confirm the recruit"
+                    >
+                      <option value="IDENTIFIED">IDENTIFIED</option>
+                      <option value="VERIFIED">VERIFIED</option>
+                      <option value="DUPLICATE">DUPLICATE</option>
+                      <option value="INVALID">INVALID</option>
+                    </select>
+                  </Td>
                 </tr>
               ))}
             </tbody>

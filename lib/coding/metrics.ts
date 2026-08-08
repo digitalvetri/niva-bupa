@@ -124,7 +124,7 @@ export async function codingBreakdown(db: PrismaClient, snapshotId: string, fiel
 }
 
 export type CodingLeadRow = {
-  leadId: string; date: string | null; th: string; branch: string; bdm: string | null; agentName: string;
+  id: string; leadId: string; date: string | null; th: string; branch: string; bdm: string | null; agentName: string;
   mobile: string | null; competitor: string | null; city: string | null; experience: string | null; source: string | null; status: string; remarks: string | null; isDuplicate: boolean;
 };
 export type CodingLeadFilters = { th?: string; branch?: string; status?: string; competitor?: string; source?: string; q?: string };
@@ -137,7 +137,7 @@ export async function codingLeads(db: PrismaClient, snapshotId: string, filters:
   if (filters.source) where.source = filters.source;
   if (filters.q) where.OR = [{ agentName: { contains: filters.q, mode: "insensitive" } }, { mobile: { contains: filters.q } }, { leadId: { contains: filters.q, mode: "insensitive" } }];
   const rows = await db.codingLead.findMany({ where, orderBy: [{ date: "desc" }, { leadId: "asc" }], take: 2000 });
-  return rows.map((r) => ({ leadId: r.leadId, date: r.date ? r.date.toISOString().slice(0, 10) : null, th: r.th, branch: r.branch, bdm: r.bdm, agentName: r.agentName, mobile: r.mobile, competitor: r.competitor, city: r.city, experience: r.experience, source: r.source, status: r.status, remarks: r.remarks, isDuplicate: r.isDuplicate }));
+  return rows.map((r) => ({ id: r.id, leadId: r.leadId, date: r.date ? r.date.toISOString().slice(0, 10) : null, th: r.th, branch: r.branch, bdm: r.bdm, agentName: r.agentName, mobile: r.mobile, competitor: r.competitor, city: r.city, experience: r.experience, source: r.source, status: r.status, remarks: r.remarks, isDuplicate: r.isDuplicate }));
 }
 
 export type CodingMasterLists = { ths: string[]; branches: { branch: string; bm: string | null; th: string | null; target: number | null }[]; competitors: string[]; sources: string[]; statuses: string[] };
