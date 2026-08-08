@@ -144,3 +144,50 @@ model NudgeLog {
 
   @@index([tenantId, userId, createdAt])
 }
+
+// ── Coding module (Mission 300 — competitor-agent recruitment) ───────────────────────
+// Each xlsx upload is an immutable snapshot, mirroring ReportSnapshot. Targets (mission /
+// per-TH / per-branch) are parsed from the workbook and stored on the snapshot.
+model CodingSnapshot {
+  id            String         @id @default(uuid())
+  tenantId      String
+  fileName      String
+  fileHash      String // sha256 — dedupe re-uploads
+  missionTarget Int            @default(300)
+  targets       Json           @default("{}") // { byTh: {name: target}, byBranch: {branch: {target, bm, th}} }
+  rowCount      Int
+  status        SnapshotStatus @default(PROCESSING)
+  uploadedById  String
+  createdAt     DateTime       @default(now())
+  leads         CodingLead[]
+
+  @@unique([tenantId, fileHash])
+  @@index([tenantId, createdAt])
+}
+
+model CodingLead {
+  id          String         @id @default(uuid())
+  snapshotId  String
+  snapshot    CodingSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  tenantId    String
+  leadId      String // NB00996 or generated
+  date        DateTime?
+  th          String         @default("UNKNOWN")
+  branch      String         @default("UNKNOWN")
+  bdm         String?
+  agentName   String
+  mobile      String?
+  competitor  String?
+  city        String?
+  experience  String?
+  source      String?
+  status      String         @default("IDENTIFIED") // IDENTIFIED | VERIFIED | DUPLICATE | INVALID
+  remarks     String?
+  isDuplicate Boolean        @default(false)
+  raw         Json
+
+  @@index([snapshotId, th])
+  @@index([snapshotId, branch])
+  @@index([snapshotId, status])
+  @@index([tenantId])
+}
