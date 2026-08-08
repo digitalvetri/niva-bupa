@@ -4,7 +4,7 @@ import { UploadCloud, Loader2, CheckCircle2, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { useCoding } from "./provider";
 
-type Result = { snapshotId: string; status: string; rowCount: number; error?: string };
+type Result = { snapshotId: string; status: string; rowCount: number; error?: string; added?: number; updated?: number };
 
 export function CodingUpload() {
   const { reload, setSnapshotId } = useCoding();
@@ -22,7 +22,7 @@ export function CodingUpload() {
       const r = await fetch("/api/coding/upload", { method: "POST", body: form });
       const j = (await r.json()) as Result;
       if (j.status === "FAILED") { setErr(j.error ?? "Upload failed"); return; }
-      setMsg(j.error ? j.error : `${j.rowCount} leads imported`);
+      setMsg(j.error ? j.error : `Master now has ${j.rowCount} leads — ${j.added ?? 0} new, ${j.updated ?? 0} updated (statuses preserved)`);
       await reload();
       if (j.snapshotId) setSnapshotId(j.snapshotId);
     } catch (e) {

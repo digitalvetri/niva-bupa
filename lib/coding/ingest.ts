@@ -7,7 +7,13 @@ import * as XLSX from "xlsx";
 import type { PrismaClient } from "@prisma/client";
 
 export type CodingIngestInput = { tenantId: string; uploadedById: string; fileName: string; buffer: Buffer };
-export type CodingIngestResult = { snapshotId: string; status: "READY" | "FAILED"; rowCount: number; durationMs: number; error?: string };
+export type CodingIngestResult = { snapshotId: string; status: "READY" | "FAILED"; rowCount: number; durationMs: number; error?: string; added?: number; updated?: number; mergedFrom?: number };
+
+// A lead in flight before it gets a snapshot/tenant/row-id (used for the auto-merge).
+type ParsedLead = {
+  leadId: string | null; date: Date | null; th: string; branch: string; bdm: string | null; agentName: string;
+  mobile: string | null; competitor: string | null; city: string | null; experience: string | null; source: string | null; status: string; remarks: string | null; raw: unknown;
+};
 
 const sha256 = (b: Buffer) => createHash("sha256").update(b).digest("hex");
 const normHeader = (h: unknown) => String(h ?? "").toLowerCase().replace(/[0-9.]/g, "").replace(/\s+/g, " ").trim();
@@ -139,51 +145,71 @@ export async function ingestCodingXlsx(prisma: PrismaClient, input: CodingIngest
   };
   const at = (row: unknown[], i: number) => (i >= 0 ? row[i] : null);
 
-  // Build lead records; skip fully-blank rows.
+  // ── Build incoming leads from the new file (skip fully-blank rows) ──
   const dataRows = picked.rows.slice(1).filter((r) => r && r.some((v) => v != null && String(v).trim() !== ""));
-  const mobileCounts = new Map<string, number>();
-  for (const r of dataRows) {
-    const m = digits(at(r, c.mobile));
-    if (m) mobileCounts.set(m, (mobileCounts.get(m) ?? 0) + 1);
-  }
-  const mobileSeen = new Map<string, number>();
+  const incoming: ParsedLead[] = dataRows.map((r) => ({
+    leadId: str(at(r, c.leadId)),
+    date: toDate(at(r, c.date)),
+    th: str(at(r, c.th)) ?? "UNKNOWN",
+    branch: str(at(r, c.branch)) ?? "UNKNOWN",
+    bdm: str(at(r, c.bdm)),
+    agentName: str(at(r, c.agent)) ?? "UNKNOWN",
+    mobile: digits(at(r, c.mobile)),
+    competitor: str(at(r, c.competitor)),
+    city: str(at(r, c.city)),
+    experience: str(at(r, c.experience)),
+    source: str(at(r, c.source)),
+    status: at(r, c.status) != null ? normStatus(at(r, c.status)) : "IDENTIFIED",
+    remarks: str(at(r, c.remarks)),
+    raw: r,
+  }));
 
-  const leads = dataRows.map((r, idx) => {
-    const mobile = digits(at(r, c.mobile));
-    let isDup = false;
-    if (mobile && (mobileCounts.get(mobile) ?? 0) > 1) {
-      const seen = (mobileSeen.get(mobile) ?? 0) + 1;
-      mobileSeen.set(mobile, seen);
-      isDup = seen > 1; // first occurrence unique, rest duplicate
+  // ── Auto-merge into the previous master (latest READY snapshot), deduped by mobile ──
+  const prev = await prisma.codingSnapshot.findFirst({ where: { tenantId: input.tenantId, status: "READY" }, orderBy: { createdAt: "desc" }, select: { id: true } });
+  const prevLeads = prev ? await prisma.codingLead.findMany({ where: { snapshotId: prev.id } }) : [];
+  const prevParsed: ParsedLead[] = prevLeads.map((p) => ({ leadId: p.leadId, date: p.date, th: p.th, branch: p.branch, bdm: p.bdm, agentName: p.agentName, mobile: p.mobile, competitor: p.competitor, city: p.city, experience: p.experience, source: p.source, status: p.status, remarks: p.remarks, raw: p.raw }));
+
+  const mergeKey = (l: ParsedLead) => (l.mobile ? `m:${l.mobile}` : `n:${l.agentName.toLowerCase().trim()}|${l.branch.toLowerCase().trim()}`);
+  const DECIDED = new Set(["VERIFIED", "DUPLICATE", "INVALID"]);
+  const map = new Map<string, ParsedLead>();
+  for (const p of prevParsed) map.set(mergeKey(p), p);
+
+  let added = 0, updated = 0;
+  for (const inc of incoming) {
+    const k = mergeKey(inc);
+    const cur = map.get(k);
+    if (cur) {
+      // Update with the latest info, but keep a manually-decided status and the stable lead ID.
+      map.set(k, {
+        ...cur,
+        date: inc.date ?? cur.date,
+        th: inc.th, branch: inc.branch, bdm: inc.bdm ?? cur.bdm, agentName: inc.agentName,
+        competitor: inc.competitor ?? cur.competitor, city: inc.city ?? cur.city, experience: inc.experience ?? cur.experience,
+        source: inc.source ?? cur.source, remarks: inc.remarks ?? cur.remarks,
+        status: DECIDED.has(cur.status) ? cur.status : inc.status !== "IDENTIFIED" ? inc.status : cur.status,
+      });
+      updated++;
+    } else {
+      map.set(k, inc);
+      added++;
     }
-    const explicit = at(r, c.status);
-    const status = explicit != null ? normStatus(explicit) : isDup ? "DUPLICATE" : "IDENTIFIED";
-    return {
-      snapshotId: snap.id,
-      tenantId: input.tenantId,
-      leadId: str(at(r, c.leadId)) ?? `NB${String(idx + 1).padStart(5, "0")}`,
-      date: toDate(at(r, c.date)),
-      th: str(at(r, c.th)) ?? "UNKNOWN",
-      branch: str(at(r, c.branch)) ?? "UNKNOWN",
-      bdm: str(at(r, c.bdm)),
-      agentName: str(at(r, c.agent)) ?? "UNKNOWN",
-      mobile,
-      competitor: str(at(r, c.competitor)),
-      city: str(at(r, c.city)),
-      experience: str(at(r, c.experience)),
-      source: str(at(r, c.source)),
-      status,
-      remarks: str(at(r, c.remarks)),
-      isDuplicate: isDup,
-      raw: r as object,
-    };
-  });
+  }
+  const merged = [...map.values()];
+
+  // Stable lead IDs: keep existing NB#####; number brand-new leads continuing from the max.
+  let maxNum = 0;
+  for (const l of merged) { const m = l.leadId?.match(/(\d+)/); if (m) maxNum = Math.max(maxNum, parseInt(m[1]!, 10)); }
+  for (const l of merged) { if (!l.leadId) l.leadId = `NB${String(++maxNum).padStart(5, "0")}`; }
+
+  const finalRows = merged.map((l) => ({
+    snapshotId: snap.id, tenantId: input.tenantId, leadId: l.leadId!, date: l.date, th: l.th, branch: l.branch, bdm: l.bdm,
+    agentName: l.agentName, mobile: l.mobile, competitor: l.competitor, city: l.city, experience: l.experience, source: l.source,
+    status: l.status, remarks: l.remarks, isDuplicate: l.status === "DUPLICATE", raw: (l.raw ?? {}) as object,
+  }));
 
   const BATCH = 500;
-  for (let i = 0; i < leads.length; i += BATCH) {
-    await prisma.codingLead.createMany({ data: leads.slice(i, i + BATCH) });
-  }
-  await prisma.codingSnapshot.update({ where: { id: snap.id }, data: { rowCount: leads.length, status: "READY" } });
+  for (let i = 0; i < finalRows.length; i += BATCH) await prisma.codingLead.createMany({ data: finalRows.slice(i, i + BATCH) });
+  await prisma.codingSnapshot.update({ where: { id: snap.id }, data: { rowCount: finalRows.length, status: "READY" } });
 
-  return { snapshotId: snap.id, status: "READY", rowCount: leads.length, durationMs: now() };
+  return { snapshotId: snap.id, status: "READY", rowCount: finalRows.length, durationMs: now(), added, updated, mergedFrom: prevLeads.length };
 }
