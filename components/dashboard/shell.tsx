@@ -90,6 +90,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <X className="h-5 w-5" />
           </button>
         </div>
+        <div className="mx-2 mt-2 grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1 text-xs font-medium">
+          <span className="rounded-md bg-primary py-1.5 text-center text-primary-fg">New Business</span>
+          <Link href="/coding" className="rounded-md py-1.5 text-center text-fg-muted hover:text-fg">Coding</Link>
+        </div>
         <nav className="mt-2 flex-1 space-y-0.5 overflow-y-auto px-2">
           {NAV.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href === "/pulse" && pathname === "/");
