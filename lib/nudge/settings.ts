@@ -12,6 +12,7 @@ export type TenantSettings = {
   llm?: LlmSettings; // bot provider + API key (stored server-side; masked on read)
   imageGen?: ImageGenSettings; // report-background image provider + key (server-side; masked on read)
   branchTargets?: Record<string, number>; // branch -> business target (₹) for report achievement %
+  rotnTargets?: unknown; // ROTN FY targets (GWP + recruitment + activation) — see lib/targets/rotn
 };
 
 const DEFAULTS: TenantSettings = { high_value_threshold: 50000, currency: "INR", agentPhones: {} };

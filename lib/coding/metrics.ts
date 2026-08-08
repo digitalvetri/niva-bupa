@@ -20,7 +20,7 @@ export type CodingTotals = {
   today_collection: number; today_date: string | null; active_ths: number;
 };
 
-export async function codingTotals(db: PrismaClient, snapshotId: string): Promise<CodingTotals> {
+export async function codingTotals(db: PrismaClient, snapshotId: string, missionOverride?: number): Promise<CodingTotals> {
   const snap = await db.codingSnapshot.findUniqueOrThrow({ where: { id: snapshotId }, select: { missionTarget: true } });
   const grp = await db.codingLead.groupBy({ by: ["status"], where: { snapshotId }, _count: { _all: true } });
   const cnt = (s: string) => grp.find((g) => g.status === s)?._count._all ?? 0;
@@ -29,9 +29,10 @@ export async function codingTotals(db: PrismaClient, snapshotId: string): Promis
   const ths = await db.codingLead.findMany({ where: { snapshotId }, select: { th: true }, distinct: ["th"] });
   const maxDate = (await db.codingLead.aggregate({ where: { snapshotId, date: { not: null } }, _max: { date: true } }))._max.date;
   const today = maxDate ? await db.codingLead.count({ where: { snapshotId, date: maxDate } }) : 0;
+  const mission = missionOverride && missionOverride > 0 ? Math.round(missionOverride) : snap.missionTarget;
   return {
     total: verified + identified + duplicate + invalid, verified, identified, duplicate, invalid,
-    pending: Math.max(0, snap.missionTarget - verified), mission: snap.missionTarget, achievement_pct: pct(verified, snap.missionTarget),
+    pending: Math.max(0, mission - verified), mission, achievement_pct: pct(verified, mission),
     active_branches: branches.length, active_ths: ths.length, today_collection: today, today_date: maxDate ? maxDate.toISOString().slice(0, 10) : null,
   };
 }
@@ -71,14 +72,16 @@ export async function codingLeaderboard(db: PrismaClient, snapshotId: string): P
   return rankSort(rows);
 }
 
-export async function codingBranchDashboard(db: PrismaClient, snapshotId: string): Promise<CodingRankRow[]> {
+export async function codingBranchDashboard(db: PrismaClient, snapshotId: string, branchTargetOverride?: Record<string, number>): Promise<CodingRankRow[]> {
   const snap = await db.codingSnapshot.findUniqueOrThrow({ where: { id: snapshotId }, select: { targets: true } });
   const byBranch = ((snap.targets as { byBranch?: Record<string, { target: number; bm: string | null; th: string | null }> })?.byBranch) ?? {};
   const map = await rankBy(db, snapshotId, "branch");
   for (const k of Object.keys(byBranch)) if (![...map.keys()].some((m) => normName(m) === normName(k))) map.set(k, { verified: 0, identified: 0, total: 0 });
   const rows: CodingRankRow[] = [...map.entries()].map(([name, e]) => {
     const t = matchTarget(byBranch, name);
-    return { name, bm: t?.bm ?? null, th: t?.th ?? null, target: t?.target ?? null, verified: e.verified, identified: e.identified, total: e.total, pending: t?.target != null ? Math.max(0, t.target - e.verified) : null, achievement_pct: t?.target ? pct(e.verified, t.target) : null, rank: 0 };
+    const override = branchTargetOverride ? matchTarget(branchTargetOverride, name) : null;
+    const target = override != null && override > 0 ? Math.round(override) : t?.target ?? null;
+    return { name, bm: t?.bm ?? null, th: t?.th ?? null, target, verified: e.verified, identified: e.identified, total: e.total, pending: target != null ? Math.max(0, target - e.verified) : null, achievement_pct: target ? pct(e.verified, target) : null, rank: 0 };
   });
   return rankSort(rows);
 }

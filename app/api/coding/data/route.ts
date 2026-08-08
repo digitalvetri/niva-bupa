@@ -3,6 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { contextFromRequest } from "@/lib/auth";
 import { captureError } from "@/lib/observability";
+import { getSettings } from "@/lib/nudge/settings";
+import { readRotn, effectiveTargets } from "@/lib/targets/rotn";
 import {
   codingTotals, codingLeaderboard, codingBranchDashboard, codingDaily, codingPivot, codingLeads, codingMasterLists, codingBreakdown,
 } from "@/lib/coding/metrics";
@@ -22,11 +24,15 @@ export async function GET(req: NextRequest) {
   const snap = await prisma.codingSnapshot.findFirst({ where: { id: snapshotId, tenantId }, select: { id: true } });
   if (!snap) return NextResponse.json({ error: "Snapshot not found" }, { status: 404 });
 
+  // ROTN Agent Recruitment target (YTD/FY) overrides the file's mission + branch targets when set.
+  const rotn = readRotn((await getSettings(prisma, tenantId)).rotnTargets);
+  const agent = rotn ? effectiveTargets(rotn, "AGENT_RECRUITMENT") : null;
+
   try {
     switch (metric) {
-      case "totals": return NextResponse.json({ data: await codingTotals(prisma, snapshotId) });
+      case "totals": return NextResponse.json({ data: await codingTotals(prisma, snapshotId, agent?.territory) });
       case "leaderboard": return NextResponse.json({ data: await codingLeaderboard(prisma, snapshotId) });
-      case "branch": return NextResponse.json({ data: await codingBranchDashboard(prisma, snapshotId) });
+      case "branch": return NextResponse.json({ data: await codingBranchDashboard(prisma, snapshotId, agent?.byBranch) });
       case "daily": return NextResponse.json({ data: await codingDaily(prisma, snapshotId) });
       case "pivot": return NextResponse.json({ data: await codingPivot(prisma, snapshotId, searchParams.get("dim") ?? "th") });
       case "master": return NextResponse.json({ data: await codingMasterLists(prisma, snapshotId) });
