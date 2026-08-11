@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { contextFromRequest } from "@/lib/auth";
 import { ensureDevTenant } from "@/lib/tenant";
 import { getSettings, updateSettings } from "@/lib/nudge/settings";
-import { defaultRotnTargets, ytdTarget, fyTotal, TARGET_BRANCHES, type RotnTargets } from "@/lib/targets/rotn";
+import { defaultRotnTargets, effectiveTargets, type RotnTargets } from "@/lib/targets/rotn";
 
 export const runtime = "nodejs";
 
@@ -32,11 +32,10 @@ function coerce(input: unknown): RotnTargets {
   };
 }
 
-/** GWP (lakhs) → per-branch ₹ target for the New Business achievement. Uses YTD when months have closed, else FY. */
+/** GWP (lakhs) → per-branch ₹ target for the New Business achievement — the CURRENT month's target. */
 function gwpBranchTargets(t: RotnTargets): Record<string, number> {
   const out: Record<string, number> = {};
-  for (const b of TARGET_BRANCHES) {
-    const lakhs = t.monthsClosed > 0 ? ytdTarget(t, "GWP", b) : fyTotal(t, "GWP", b);
+  for (const [b, lakhs] of Object.entries(effectiveTargets(t, "GWP").byBranch)) {
     if (lakhs > 0) out[b] = Math.round(lakhs * 100000);
   }
   return out;

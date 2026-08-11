@@ -74,6 +74,11 @@ export const DEFAULT_TARGETS: TargetGrid = {
   },
 };
 
+/** Fiscal-month number for today (Apr = 1 … Mar = 12). */
+export function currentFiscalMonth(): number {
+  return ((new Date().getMonth() - 3 + 12) % 12) + 1;
+}
+
 export function defaultRotnTargets(): RotnTargets {
   // Deep clone so edits don't mutate the module default.
   const data: TargetGrid = {};
@@ -81,7 +86,8 @@ export function defaultRotnTargets(): RotnTargets {
     data[cat] = {};
     for (const [b, arr] of Object.entries(branches)) data[cat][b] = [...arr];
   }
-  return { fiscalYear: "2026-27", monthsClosed: 4, data };
+  // monthsClosed doubles as the CURRENT fiscal month (1=Apr … 12=Mar); the target is that month's cell.
+  return { fiscalYear: "2026-27", monthsClosed: currentFiscalMonth(), data };
 }
 
 const sum = (a: number[]) => a.reduce((x, y) => x + (Number(y) || 0), 0);
@@ -107,10 +113,23 @@ export function readRotn(input: unknown): RotnTargets | null {
   return { fiscalYear: typeof t.fiscalYear === "string" ? t.fiscalYear : "2026-27", monthsClosed: Number(t.monthsClosed) || 0, data: t.data };
 }
 
-/** Effective (YTD when months have closed, else FY) territory + per-branch target for a category. */
+/** 0-based index of the current month (from monthsClosed = current fiscal month), or -1 if unset. */
+export function currentMonthIndex(t: RotnTargets): number {
+  return t.monthsClosed >= 1 ? Math.min(11, t.monthsClosed - 1) : -1;
+}
+export function currentMonthLabel(t: RotnTargets): string {
+  const i = currentMonthIndex(t);
+  return i >= 0 ? MONTHS[i]! : "—";
+}
+export function monthTarget(t: RotnTargets, cat: string, branch: string, idx: number): number {
+  return t.data[cat]?.[branch]?.[idx] ?? 0;
+}
+
+/** THIS MONTH's territory + per-branch target for a category — the target resets each month. */
 export function effectiveTargets(t: RotnTargets, cat: string): { territory: number; byBranch: Record<string, number> } {
-  const useYtd = t.monthsClosed > 0;
+  const idx = currentMonthIndex(t);
   const byBranch: Record<string, number> = {};
-  for (const b of TARGET_BRANCHES) byBranch[b] = useYtd ? ytdTarget(t, cat, b) : fyTotal(t, cat, b);
-  return { territory: useYtd ? territoryYtd(t, cat) : territoryFy(t, cat), byBranch };
+  if (idx < 0) return { territory: 0, byBranch };
+  for (const b of TARGET_BRANCHES) byBranch[b] = monthTarget(t, cat, b, idx);
+  return { territory: TARGET_BRANCHES.reduce((s, b) => s + byBranch[b]!, 0), byBranch };
 }

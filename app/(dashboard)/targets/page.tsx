@@ -7,7 +7,7 @@ import { LoadingBlock } from "@/components/dashboard/states";
 import { useDashboard } from "@/components/dashboard/provider";
 import { DEFAULT_BRANCH_GROUPS } from "@/lib/branch-group";
 import {
-  MONTHS, TARGET_BRANCHES, CATEGORIES, defaultRotnTargets, fyTotal, ytdTarget, territoryFy, territoryYtd,
+  MONTHS, TARGET_BRANCHES, CATEGORIES, defaultRotnTargets, fyTotal, territoryFy, monthTarget, currentMonthIndex, currentMonthLabel, effectiveTargets,
   type RotnTargets, type CategoryKey,
 } from "@/lib/targets/rotn";
 import { Loader2 as Spin, CheckCircle2 as Check } from "lucide-react";
@@ -55,6 +55,7 @@ export default function TargetsPage() {
 
   const meta = CATEGORIES.find((c) => c.key === cat)!;
   const isMoney = !!meta.isMoney;
+  const cur = currentMonthIndex(t); // 0-based current month, or -1
 
   return (
     <>
@@ -81,15 +82,15 @@ export default function TargetsPage() {
         ))}
       </div>
 
-      {/* Months-closed selector */}
+      {/* Current-month selector — the target is this month's cell and resets each month */}
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border bg-surface px-4 py-3 text-sm">
         <Target className="h-4 w-4 text-primary" />
-        <span className="text-fg-muted">Actuals entered through:</span>
+        <span className="text-fg-muted">Current month:</span>
         <select value={t.monthsClosed} onChange={(e) => { setT({ ...t, monthsClosed: Number(e.target.value) }); setSaved(false); }} className="h-8 rounded-lg border bg-surface px-2 text-sm text-fg focus:border-primary focus:outline-none">
-          <option value={0}>Not started</option>
+          <option value={0}>Not set</option>
           {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
         </select>
-        <span className="text-xs text-fg-subtle">— YTD target for {meta.label}: <strong className="text-fg">{isMoney ? fmtMoneyCr(territoryYtd(t, cat)) : fmtNum(territoryYtd(t, cat))}</strong> (drives achievement %)</span>
+        <span className="text-xs text-fg-subtle">— {meta.label} target for <strong className="text-fg">{currentMonthLabel(t)}</strong>: <strong className="text-fg">{isMoney ? fmtMoneyCr(effectiveTargets(t, cat).territory) : fmtNum(effectiveTargets(t, cat).territory)}</strong> (drives achievement %; resets each month)</span>
       </div>
 
       {/* Editable grid */}
@@ -99,9 +100,9 @@ export default function TargetsPage() {
             <thead>
               <tr className="text-white" style={{ background: meta.accent }}>
                 <th className="sticky left-0 z-10 px-3 py-2 text-left" style={{ background: meta.accent }}>Branch</th>
-                {MONTHS.map((m) => <th key={m} className="px-1.5 py-2 text-center font-semibold">{m}</th>)}
+                {MONTHS.map((m, mi) => <th key={m} className={`px-1.5 py-2 text-center font-semibold ${mi === cur ? "bg-white/25" : ""}`}>{m}{mi === cur ? " ●" : ""}</th>)}
                 <th className="px-2 py-2 text-right">FY Total</th>
-                <th className="px-2 py-2 text-right">YTD</th>
+                <th className="whitespace-nowrap px-2 py-2 text-right">This Mo.</th>
               </tr>
             </thead>
             <tbody>
@@ -109,27 +110,27 @@ export default function TargetsPage() {
                 <tr key={b} className="border-b">
                   <td className="sticky left-0 z-10 whitespace-nowrap bg-surface px-3 py-1.5 font-medium">{b}</td>
                   {MONTHS.map((m, mi) => (
-                    <td key={m} className="px-0.5 py-1">
+                    <td key={m} className={`px-0.5 py-1 ${mi === cur ? "bg-primary/10" : ""}`}>
                       <input
                         type="number"
                         value={t.data[cat]?.[b]?.[mi] ?? 0}
                         onChange={(e) => setCell(b, mi, e.target.value)}
                         step={isMoney ? "0.01" : "1"}
-                        className="h-8 w-14 rounded border bg-surface-2 px-1 text-right text-xs tabular-nums text-fg focus:border-primary focus:outline-none"
+                        className={`h-8 w-14 rounded border px-1 text-right text-xs tabular-nums text-fg focus:border-primary focus:outline-none ${mi === cur ? "border-primary bg-surface-2" : "bg-surface-2"}`}
                       />
                     </td>
                   ))}
                   <td className="px-2 py-1 text-right font-bold tabular-nums">{fmtNum(fyTotal(t, cat, b))}</td>
-                  <td className="px-2 py-1 text-right tabular-nums text-fg-muted">{fmtNum(ytdTarget(t, cat, b))}</td>
+                  <td className="px-2 py-1 text-right font-bold tabular-nums text-primary">{cur >= 0 ? fmtNum(monthTarget(t, cat, b, cur)) : "—"}</td>
                 </tr>
               ))}
               <tr className="border-t-2 border-border font-bold" style={{ background: `${meta.accent}12` }}>
                 <td className="sticky left-0 z-10 px-3 py-2" style={{ background: `${meta.accent}12` }}>Territory Total</td>
                 {MONTHS.map((_, mi) => (
-                  <td key={mi} className="px-1.5 py-2 text-center text-xs tabular-nums">{fmtNum(TARGET_BRANCHES.reduce((s, b) => s + (t.data[cat]?.[b]?.[mi] ?? 0), 0))}</td>
+                  <td key={mi} className={`px-1.5 py-2 text-center text-xs tabular-nums ${mi === cur ? "bg-primary/10" : ""}`}>{fmtNum(TARGET_BRANCHES.reduce((s, b) => s + (t.data[cat]?.[b]?.[mi] ?? 0), 0))}</td>
                 ))}
                 <td className="px-2 py-2 text-right tabular-nums">{fmtNum(territoryFy(t, cat))}</td>
-                <td className="px-2 py-2 text-right tabular-nums">{fmtNum(territoryYtd(t, cat))}</td>
+                <td className="px-2 py-2 text-right tabular-nums text-primary">{cur >= 0 ? fmtNum(effectiveTargets(t, cat).territory) : "—"}</td>
               </tr>
             </tbody>
           </table>
