@@ -1,4 +1,5 @@
 "use client";
+import * as React from "react";
 import { ChevronRight } from "lucide-react";
 import { Card, CardBody, CardHeader, CardTitle, Table, Th, Td, Button } from "@/components/ui/primitives";
 import { PageHeader } from "@/components/dashboard/kpi-card";
@@ -9,6 +10,7 @@ import { BarList } from "@/components/charts/bar-list";
 import { STAGE_LABEL, heatFor, HEAT_COLOR } from "@/lib/theme";
 import { formatINR } from "@/lib/metrics/format";
 import { cn } from "@/lib/utils";
+import { consolidateBranches, DEFAULT_BRANCH_GROUPS } from "@/lib/branch-group";
 import type { BranchRow, FunnelRow, AgentRow, StuckCaseRow } from "@/lib/metrics/metrics";
 
 function convTone(pct: number) {
@@ -18,38 +20,60 @@ function convTone(pct: number) {
 }
 
 export default function BranchesPage() {
-  const { filters, setParam, snapshotId, loadingSnapshots } = useDashboard();
+  const { setParam, snapshotId, loadingSnapshots } = useDashboard();
   const branches = useMetric<BranchRow[]>("premium_by_branch");
-  const selected = filters.branch?.length === 1 ? filters.branch[0]! : null;
+  const [groups, setGroups] = React.useState<Record<string, string>>(DEFAULT_BRANCH_GROUPS);
+  const [branchTargets, setBranchTargets] = React.useState<Record<string, number>>({});
+  const [selected, setSelected] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    fetch("/api/settings", { cache: "no-store" }).then((r) => r.json()).then((s) => {
+      setGroups({ ...DEFAULT_BRANCH_GROUPS, ...(s.branchGroups ?? {}) });
+      setBranchTargets(s.branchTargets ?? {});
+    }).catch(() => {});
+  }, []);
 
   if (!snapshotId && !loadingSnapshots) return (<><PageHeader title="Branches" /><EmptyState title="No snapshot yet" /></>);
+  const rows = branches.data ? consolidateBranches(branches.data, groups, branchTargets) : [];
+
+  function toggle(canon: string, members: string[]) {
+    if (selected === canon) { setSelected(null); setParam("branch", null); }
+    else { setSelected(canon); setParam("branch", members.join(",")); }
+  }
 
   return (
     <>
-      <PageHeader title="Branches" subtitle="Login-branch leaderboard" />
+      <PageHeader title="Branches" subtitle="Login-branch leaderboard vs GWP target" />
       <Card>
-        {branches.loading ? <div className="p-4"><LoadingBlock className="h-64" /></div> : branches.error ? <div className="p-4"><ErrorState message={branches.error} /></div> : branches.data ? (
-          <Table>
-            <thead>
-              <tr><Th>Branch</Th><Th className="text-right">Cases</Th><Th className="text-right">Logged</Th><Th className="text-right">Issued</Th><Th className="text-right">Conversion</Th><Th></Th></tr>
-            </thead>
-            <tbody>
-              {branches.data.map((b) => (
-                <tr key={b.branch} className={cn("cursor-pointer hover:bg-surface-2/50", selected === b.branch && "bg-surface-2/60")} onClick={() => setParam("branch", selected === b.branch ? null : b.branch)}>
-                  <Td className="font-medium">{b.branch}</Td>
-                  <Td className="text-right tabular-nums">{b.cases}</Td>
-                  <Td className="text-right tabular-nums">{b.display.logged}</Td>
-                  <Td className="text-right tabular-nums text-fg-muted">{b.display.issued}</Td>
-                  <Td className={cn("text-right tabular-nums font-medium", convTone(b.conversion_pct))}>{b.conversion_pct}%</Td>
-                  <Td className="text-right"><ChevronRight className="ml-auto h-4 w-4 text-fg-subtle" /></Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+        {branches.loading ? <div className="p-4"><LoadingBlock className="h-64" /></div> : branches.error ? <div className="p-4"><ErrorState message={branches.error} /></div> : rows.length ? (
+          <div className="overflow-x-auto">
+            <Table>
+              <thead>
+                <tr><Th>Branch</Th><Th className="text-right">Cases</Th><Th className="text-right">Logged</Th><Th className="text-right">Issued</Th><Th className="text-right">Target</Th><Th className="text-right">Achieved</Th><Th className="text-right">Conversion</Th><Th></Th></tr>
+              </thead>
+              <tbody>
+                {rows.map((b) => {
+                  const extra = b.members.filter((m) => m !== b.branch);
+                  return (
+                    <tr key={b.branch} className={cn("cursor-pointer hover:bg-surface-2/50", selected === b.branch && "bg-surface-2/60")} onClick={() => toggle(b.branch, b.members)}>
+                      <Td className="font-medium">{b.branch}{extra.length > 0 && <span className="ml-1.5 text-[10px] font-normal text-fg-subtle">+ {extra.join(", ")}</span>}</Td>
+                      <Td className="text-right tabular-nums">{b.cases}</Td>
+                      <Td className="text-right tabular-nums">{formatINR(b.logged)}</Td>
+                      <Td className="text-right tabular-nums text-fg-muted">{formatINR(b.issued)}</Td>
+                      <Td className="text-right tabular-nums text-fg-muted">{b.target != null ? formatINR(b.target) : "—"}</Td>
+                      <Td className={cn("text-right tabular-nums font-semibold", b.achievement_pct != null ? convTone(b.achievement_pct) : "text-fg-subtle")}>{b.achievement_pct != null ? `${b.achievement_pct}%` : "—"}</Td>
+                      <Td className={cn("text-right tabular-nums font-medium", convTone(b.conversion_pct))}>{b.conversion_pct}%</Td>
+                      <Td className="text-right"><ChevronRight className="ml-auto h-4 w-4 text-fg-subtle" /></Td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </div>
         ) : null}
       </Card>
 
-      {selected && <BranchDetail branch={selected} onClose={() => setParam("branch", null)} />}
+      {selected && <BranchDetail branch={selected} onClose={() => { setSelected(null); setParam("branch", null); }} />}
     </>
   );
 }

@@ -2,7 +2,7 @@
 import * as React from "react";
 import { ChevronRight, ChevronDown, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/primitives";
-import { PageHeader } from "@/components/dashboard/kpi-card";
+import { PageHeader, KpiCard } from "@/components/dashboard/kpi-card";
 import { LoadingBlock, ErrorState, EmptyState } from "@/components/dashboard/states";
 import { useMetric } from "@/components/dashboard/use-metric";
 import { useDashboard } from "@/components/dashboard/provider";
@@ -16,12 +16,22 @@ function convTone(pct: number) {
 export default function PeoplePage() {
   const { snapshotId, loadingSnapshots } = useDashboard();
   const ams = useMetric<GroupRow[]>("am_leaderboard");
+  const agents = useMetric<AgentRow[]>("agent_leaderboard");
 
   if (!snapshotId && !loadingSnapshots) return (<><PageHeader title="People" /><EmptyState title="No snapshot yet" /></>);
+
+  const leaderCount = ams.data ? ams.data.length : null;
+  const agentCount = agents.data ? agents.data.filter((a) => a.agentName !== "UNASSIGNED").length : null;
 
   return (
     <>
       <PageHeader title="People" subtitle="Agency managers → agents" />
+
+      <div className="mb-4 grid grid-cols-2 gap-4 sm:max-w-md">
+        <KpiCard label="Total Leaders" value={leaderCount != null ? String(leaderCount) : "—"} sub="agency managers" accent="primary" />
+        <KpiCard label="Total Agents" value={agentCount != null ? String(agentCount) : "—"} sub="active advisors" accent="won" />
+      </div>
+
       <Card className="p-2">
         {ams.loading ? <div className="p-3"><LoadingBlock className="h-64" /></div> : ams.error ? <div className="p-3"><ErrorState message={ams.error} /></div> : ams.data ? (
           <div className="divide-y divide-border/60">

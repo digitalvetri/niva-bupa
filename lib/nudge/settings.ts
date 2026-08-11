@@ -12,6 +12,7 @@ export type TenantSettings = {
   llm?: LlmSettings; // bot provider + API key (stored server-side; masked on read)
   imageGen?: ImageGenSettings; // report-background image provider + key (server-side; masked on read)
   branchTargets?: Record<string, number>; // branch -> business target (₹) for report achievement %
+  branchGroups?: Record<string, string>; // login-branch -> parent target branch (e.g. Trichy -> Thanjavur)
   rotnTargets?: unknown; // ROTN FY targets (GWP + recruitment + activation) — see lib/targets/rotn
 };
 

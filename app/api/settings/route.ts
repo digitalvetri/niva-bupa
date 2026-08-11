@@ -18,6 +18,7 @@ function publicView(s: TenantSettings) {
     currency: s.currency,
     agentPhones: s.agentPhones,
     branchTargets: s.branchTargets ?? {},
+    branchGroups: s.branchGroups ?? {},
     llm: {
       provider: s.llm?.provider ?? null,
       model: s.llm?.model ?? (s.llm?.provider ? defaultModelFor(s.llm.provider as never) : null),
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
     high_value_threshold?: number;
     agentPhonesCsv?: string;
     branchTargets?: Record<string, number>;
+    branchGroups?: Record<string, string>;
     llm?: { provider?: string; apiKey?: string; model?: string; clear?: boolean };
     imageGen?: { provider?: string; apiKey?: string; accountId?: string; model?: string; clear?: boolean };
   };
@@ -70,6 +72,12 @@ export async function POST(req: NextRequest) {
     const clean: Record<string, number> = {};
     for (const [b, v] of Object.entries(body.branchTargets)) if (typeof v === "number" && v >= 0) clean[b] = Math.round(v);
     patch.branchTargets = clean;
+  }
+  if (body.branchGroups && typeof body.branchGroups === "object") {
+    const clean: Record<string, string> = {};
+    // Only store non-identity mappings (a branch that rolls up into a different parent).
+    for (const [b, v] of Object.entries(body.branchGroups)) if (typeof v === "string" && v && v !== b) clean[b] = v;
+    patch.branchGroups = clean;
   }
 
   if (body.llm) {

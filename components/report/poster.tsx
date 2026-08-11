@@ -376,13 +376,14 @@ function RankBars({ items, showRank }: { items: { label: string; value: number; 
 
 function BranchLeaderboard({ branches }: { branches: PosterData["branches"] }) {
   const max = Math.max(1, ...branches.map((b) => b.logged));
+  const GRID = "20px 1fr 82px 72px 44px";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "22px 1fr 96px 56px", gap: 8, fontSize: 9.5, textTransform: "uppercase", letterSpacing: 0.5, color: C.faint, fontWeight: 700, paddingBottom: 2 }}>
-        <span></span><span>Branch</span><span>Logged</span><span style={{ textAlign: "right" }}>Conv.</span>
+      <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.4, color: C.faint, fontWeight: 700, paddingBottom: 2 }}>
+        <span></span><span>Branch</span><span>Logged</span><span>Target</span><span style={{ textAlign: "right" }}>Ach.</span>
       </div>
       {branches.map((b, i) => (
-        <div key={b.branch} style={{ display: "grid", gridTemplateColumns: "22px 1fr 96px 56px", gap: 8, alignItems: "center", fontSize: 12.5 }}>
+        <div key={b.branch} style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, alignItems: "center", fontSize: 12 }}>
           <span style={{ width: 20, height: 20, borderRadius: "50%", background: i < 3 ? C.navy2 : C.bg, color: i < 3 ? "#fff" : C.muted, fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
           <div>
             <div style={{ fontWeight: 700, color: C.ink }}>{b.branch}</div>
@@ -390,8 +391,9 @@ function BranchLeaderboard({ branches }: { branches: PosterData["branches"] }) {
               <div style={{ width: `${Math.max(4, (b.logged / max) * 100)}%`, height: "100%", background: `linear-gradient(90deg, ${C.cyan}, #0ea5a4)`, borderRadius: 3 }} />
             </div>
           </div>
-          <div style={{ fontWeight: 800, color: C.ink }}>{b.display.logged}<span style={{ color: C.faint, fontWeight: 500, fontSize: 10.5 }}> · {b.cases}c</span></div>
-          <div style={{ textAlign: "right", fontWeight: 800, color: achievementColor(b.conversion_pct) }}>{b.conversion_pct}%</div>
+          <div style={{ fontWeight: 800, color: C.ink }}>{formatINR(b.logged)}<span style={{ color: C.faint, fontWeight: 500, fontSize: 9.5 }}> · {b.cases}c</span></div>
+          <div style={{ color: C.muted, fontWeight: 600 }}>{b.target != null ? formatINR(b.target) : "—"}</div>
+          <div style={{ textAlign: "right", fontWeight: 800, color: b.achievement_pct != null ? achievementColor(b.achievement_pct) : C.faint }}>{b.achievement_pct != null ? `${b.achievement_pct}%` : "—"}</div>
         </div>
       ))}
     </div>
@@ -417,6 +419,6 @@ function buildObservations(data: PosterData, x: { bizDays: number; zeroDays: num
   if (t.stuck_count > 0) out.push(`${formatINR(t.stuck_premium)} stuck across ${t.stuck_count} pending cases — work the pipeline.`);
   if (data.agents[0]) out.push(`Top agent ${data.agents[0].agentName} — ${formatINR(data.agents[0].logged)} across ${data.agents[0].cases} cases.`);
   if (data.branch && data.target) out.push(`Business achievement ${formatPct(t.issued_premium, data.target)}% vs target ${formatINR(data.target)}.`);
-  if (!data.branch && data.branches[0]) out.push(`Top branch ${data.branches[0].branch} — ${data.branches[0].display.logged}.`);
+  if (!data.branch && data.branches[0]) out.push(`Top branch ${data.branches[0].branch} — ${formatINR(data.branches[0].logged)}.`);
   return out;
 }

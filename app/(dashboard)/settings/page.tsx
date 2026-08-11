@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/dashboard/kpi-card";
 import { LoadingBlock } from "@/components/dashboard/states";
 import { PROVIDERS, defaultModelFor, type ProviderId } from "@/lib/bot/providers/types";
 import { IMAGE_PROVIDERS, imageProviderMeta, type ImageProviderId } from "@/lib/image";
-import { BranchTargetsCard } from "@/components/dashboard/branch-targets-card";
 
 type LlmView = { provider: ProviderId | null; model: string | null; configured: boolean; keyLast4: string | null; source: "settings" | "env" | null };
 type ImageView = { provider: ImageProviderId | null; model: string | null; accountLast4: string | null; keyLast4: string | null; configured: boolean };
@@ -174,7 +173,6 @@ export default function SettingsPage() {
       })()}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <BranchTargetsCard />
         <Card>
           <CardHeader><CardTitle>High-value threshold</CardTitle></CardHeader>
           <CardBody className="space-y-3">

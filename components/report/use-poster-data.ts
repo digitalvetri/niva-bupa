@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { useDashboard } from "@/components/dashboard/provider";
+import { consolidateBranches, canonicalBranch, DEFAULT_BRANCH_GROUPS, type ConsolidatedBranch } from "@/lib/branch-group";
 import type { TotalsData, TrendPoint, FunnelRow, BranchRow, AgentRow, GroupRow } from "@/lib/metrics/metrics";
 
 export type PosterData = {
@@ -10,10 +11,10 @@ export type PosterData = {
   totals: TotalsData;
   daily: TrendPoint[];
   funnel: FunnelRow[];
-  branches: BranchRow[]; // for territory
+  branches: ConsolidatedBranch[]; // consolidated (grouped) branch table with GWP targets
   agents: AgentRow[];
   products: GroupRow[];
-  target: number | null; // business target ₹ for this scope (from settings)
+  target: number | null; // business target ₹ for this scope (from settings / GWP)
 };
 
 async function metric<T>(name: string, snapshotId: string, branch: string | null): Promise<T> {
@@ -47,13 +48,18 @@ export function usePosterData(branch: string | null): { data: PosterData | null;
       ]);
       const snap = snapshots.find((s) => s.id === snapshotId);
       const targets: Record<string, number> = settings?.branchTargets ?? {};
-      const target = branch ? (targets[branch] ?? null) : (Object.keys(targets).length ? Object.values(targets).reduce((a, b) => a + (b as number), 0) : null);
+      const groups: Record<string, string> = { ...DEFAULT_BRANCH_GROUPS, ...(settings?.branchGroups ?? {}) };
+      const consolidated = consolidateBranches(branches, groups, targets);
+      // Target for this scope: the branch's (canonical) GWP target, or the territory sum.
+      const target = branch
+        ? (targets[canonicalBranch(branch, groups)] ?? null)
+        : (Object.keys(targets).length ? Object.values(targets).reduce((a, b) => a + (b as number), 0) : null);
       if (!alive) return;
       setData({
         scopeLabel: branch ?? "Territory",
         branch,
         period: { start: snap?.periodStart ?? null, end: snap?.periodEnd ?? null },
-        totals, daily, funnel, branches, agents: agents.slice(0, 6), products: products.slice(0, 6), target,
+        totals, daily, funnel, branches: consolidated, agents: agents.slice(0, 6), products: products.slice(0, 6), target,
       });
     })().catch((e) => alive && setError((e as Error).message)).finally(() => alive && setLoading(false));
     return () => { alive = false; };
