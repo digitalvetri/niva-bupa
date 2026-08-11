@@ -130,26 +130,27 @@ export const Poster = React.forwardRef<HTMLDivElement, PosterProps>(function Pos
           <InsightBanner data={data} topDay={topDay} />
         </div>
 
-        {/* ── Body: two columns ─────────────────────────────────── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.12fr 1fr", gap: 18, padding: "8px 30px 6px", alignItems: "start" }}>
+        {/* ── Body: two balanced columns that fill the page ─────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.18fr 1fr", gap: 18, padding: "8px 30px 6px", alignItems: "stretch" }}>
           {/* LEFT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {data.branch ? (
-              <Section title="Business logged — day-wise" accent={C.cyan}>
+              <Section title="Business logged — day-wise" accent={C.cyan} grow>
                 <DayWise daily={data.daily} />
-                <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                  <MiniStat label="Business days" value={String(bizDays)} color={C.green} />
-                  <MiniStat label="Zero days" value={String(zeroDays)} color={zeroDays ? C.red : C.muted} />
-                  <MiniStat label="Avg / biz day" value={formatINR(bizDays ? t.logged_premium / bizDays : 0)} color={C.ink} />
+                <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                  <MiniStat label="Logged" value={formatINR(t.logged_premium)} color={C.cyan} />
+                  <MiniStat label="Issued" value={formatINR(t.issued_premium)} color={C.green} />
+                  <MiniStat label="Business days" value={String(bizDays)} color={C.ink} />
+                  <MiniStat label="Avg / day" value={formatINR(bizDays ? t.logged_premium / bizDays : 0)} color={C.ink} />
                 </div>
               </Section>
             ) : (
-              <Section title="Branch performance" accent={C.cyan}>
+              <Section title="Branch performance — logged · issued vs target" accent={C.cyan} grow>
                 <BranchLeaderboard branches={data.branches} />
               </Section>
             )}
-            <Section title="Daily business trend" accent={C.orange}>
-              <TrendChart daily={data.daily} topDate={topDay?.date} />
+            <Section title="Product mix" accent="#0ea5a4" grow>
+              <RankBars items={data.products.map((p, i) => ({ label: p.key, value: p.logged, count: p.cases, color: PRODUCT_COLORS[i % PRODUCT_COLORS.length] }))} showRank={false} />
             </Section>
           </div>
 
@@ -158,7 +159,7 @@ export const Poster = React.forwardRef<HTMLDivElement, PosterProps>(function Pos
             <Section title="Pipeline health" accent={C.indigo}>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 <Donut segments={donutSegments} centerTop={`${t.conversion_pct}%`} centerSub="WON" />
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 9 }}>
                   {donutSegments.map((s) => (
                     <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
                       <span style={{ width: 10, height: 10, borderRadius: 3, background: s.color }} />
@@ -168,14 +169,11 @@ export const Poster = React.forwardRef<HTMLDivElement, PosterProps>(function Pos
                   ))}
                 </div>
               </div>
-              <div style={{ height: 1, background: C.line, margin: "12px 0" }} />
+              <div style={{ height: 1, background: C.line, margin: "13px 0" }} />
               <RankBars items={data.funnel.map((f) => ({ label: STAGE_LABEL[f.stage] ?? f.stage, value: f.logged, count: f.cases, color: STAGE_COLOR[f.stage] ?? C.cyan }))} showRank={false} />
             </Section>
-            <Section title={data.branch ? "Top agents" : "Top agents (territory)"} accent={C.orange}>
+            <Section title={data.branch ? "Top agents" : "Top agents (territory)"} accent={C.orange} grow>
               <RankBars items={data.agents.map((a) => ({ label: a.agentName, value: a.logged, count: a.cases }))} showRank />
-            </Section>
-            <Section title="Product mix" accent="#0ea5a4">
-              <RankBars items={data.products.map((p, i) => ({ label: p.key, value: p.logged, count: p.cases, color: PRODUCT_COLORS[i % PRODUCT_COLORS.length] }))} showRank={false} />
             </Section>
           </div>
         </div>
@@ -205,14 +203,14 @@ export const Poster = React.forwardRef<HTMLDivElement, PosterProps>(function Pos
 });
 
 // ── pieces ───────────────────────────────────────────────────────────────────────
-function Section({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
+function Section({ title, accent, children, grow }: { title: string; accent: string; children: React.ReactNode; grow?: boolean }) {
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 8px rgba(15,28,52,0.06)" }}>
+    <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 2px 8px rgba(15,28,52,0.06)", flex: grow ? 1 : undefined, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 17px", borderBottom: `1px solid ${C.line}` }}>
         <span style={{ width: 4, height: 16, borderRadius: 3, background: accent }} />
         <span style={{ fontWeight: 700, fontSize: 14, color: C.ink, letterSpacing: 0.2 }}>{title}</span>
       </div>
-      <div style={{ padding: 17 }}>{children}</div>
+      <div style={{ padding: 17, flex: grow ? 1 : undefined, display: "flex", flexDirection: "column", justifyContent: grow ? "space-between" : undefined }}>{children}</div>
     </div>
   );
 }
@@ -328,31 +326,6 @@ function DayWise({ daily }: { daily: PosterData["daily"] }) {
   );
 }
 
-function TrendChart({ daily, topDate }: { daily: PosterData["daily"]; topDate?: string }) {
-  const max = Math.max(1, ...daily.map((d) => d.logged));
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 122, borderBottom: `2px solid ${C.line}` }}>
-        {daily.map((d) => {
-          const isTop = d.date === topDate && d.logged > 0;
-          const h = (d.logged / max) * 110;
-          return (
-            <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
-              <div style={{ fontSize: 8.5, fontWeight: 700, color: isTop ? C.orange : "transparent", marginBottom: 2, whiteSpace: "nowrap" }}>{isTop ? formatINR(d.logged) : "·"}</div>
-              <div style={{ width: "72%", height: `${Math.max(d.logged > 0 ? 3 : 0, h)}px`, borderRadius: "5px 5px 0 0", background: isTop ? `linear-gradient(180deg, ${C.orange}, #e08c00)` : `linear-gradient(180deg, ${C.cyan}, ${C.cyanDk})` }} />
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ display: "flex", gap: 4, marginTop: 5 }}>
-        {daily.map((d, i) => (
-          <div key={d.date} style={{ flex: 1, textAlign: "center", fontSize: 8, color: C.faint }}>{i % 2 === 0 ? d.date.slice(5) : ""}</div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function RankBars({ items, showRank }: { items: { label: string; value: number; count: number; color?: string }[]; showRank: boolean }) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
@@ -376,22 +349,23 @@ function RankBars({ items, showRank }: { items: { label: string; value: number; 
 
 function BranchLeaderboard({ branches }: { branches: PosterData["branches"] }) {
   const max = Math.max(1, ...branches.map((b) => b.logged));
-  const GRID = "20px 1fr 82px 72px 44px";
+  const GRID = "18px 1fr 66px 66px 60px 36px";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-      <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.4, color: C.faint, fontWeight: 700, paddingBottom: 2 }}>
-        <span></span><span>Branch</span><span>Logged</span><span>Target</span><span style={{ textAlign: "right" }}>Ach.</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%" }}>
+      <div style={{ display: "grid", gridTemplateColumns: GRID, gap: 7, fontSize: 8.5, textTransform: "uppercase", letterSpacing: 0.3, color: C.faint, fontWeight: 700, paddingBottom: 2 }}>
+        <span></span><span>Branch</span><span>Logged</span><span>Issued</span><span>Target</span><span style={{ textAlign: "right" }}>Ach.</span>
       </div>
       {branches.map((b, i) => (
-        <div key={b.branch} style={{ display: "grid", gridTemplateColumns: GRID, gap: 8, alignItems: "center", fontSize: 12 }}>
-          <span style={{ width: 20, height: 20, borderRadius: "50%", background: i < 3 ? C.navy2 : C.bg, color: i < 3 ? "#fff" : C.muted, fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
-          <div>
-            <div style={{ fontWeight: 700, color: C.ink }}>{b.branch}</div>
+        <div key={b.branch} style={{ display: "grid", gridTemplateColumns: GRID, gap: 7, alignItems: "center", fontSize: 11.5 }}>
+          <span style={{ width: 18, height: 18, borderRadius: "50%", background: i < 3 ? C.navy2 : C.bg, color: i < 3 ? "#fff" : C.muted, fontSize: 9.5, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700, color: C.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.branch}</div>
             <div style={{ marginTop: 3, height: 5, background: C.bg, borderRadius: 3, overflow: "hidden" }}>
               <div style={{ width: `${Math.max(4, (b.logged / max) * 100)}%`, height: "100%", background: `linear-gradient(90deg, ${C.cyan}, #0ea5a4)`, borderRadius: 3 }} />
             </div>
           </div>
-          <div style={{ fontWeight: 800, color: C.ink }}>{formatINR(b.logged)}<span style={{ color: C.faint, fontWeight: 500, fontSize: 9.5 }}> · {b.cases}c</span></div>
+          <div style={{ fontWeight: 800, color: C.ink }}>{formatINR(b.logged)}</div>
+          <div style={{ fontWeight: 800, color: C.green }}>{formatINR(b.issued)}</div>
           <div style={{ color: C.muted, fontWeight: 600 }}>{b.target != null ? formatINR(b.target) : "—"}</div>
           <div style={{ textAlign: "right", fontWeight: 800, color: b.achievement_pct != null ? achievementColor(b.achievement_pct) : C.faint }}>{b.achievement_pct != null ? `${b.achievement_pct}%` : "—"}</div>
         </div>
